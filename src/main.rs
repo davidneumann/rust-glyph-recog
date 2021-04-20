@@ -62,6 +62,16 @@ fn get_rays(input: &str) -> () {
     println!("{:?}", rays.r2l);
     println!("{:?}", rays.t2b);
     println!("{:?}", rays.b2t);
+    for y in 0..height {
+        for x in 0..width {
+            if rays.l2r[(y as usize)] == x { print!("X"); }
+            else if rays.r2l[(y as usize)] == x { print!("X"); }
+            else if rays.t2b[(x as usize)] == y { print!("X"); }
+            else if rays.b2t[(x as usize)] == y { print!("X"); }
+            else { print!(" "); }
+        }
+        println!();
+    }
 }
 
 fn _get_width(input: &str) -> i32{
