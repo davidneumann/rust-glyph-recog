@@ -12,17 +12,23 @@ fn main() -> io::Result<()> {
     print_rays(ray2);
 
     let input2 = "/home/david/Downloads/dats/";
-    let things = fs::read_dir(input2)?
+    let things : Vec<(String, GlyphRays)> = fs::read_dir(input2)?
         .into_iter()
         .filter(|x| x.as_ref().unwrap().path().is_dir())
         .map(|x| 
             {
                 let dir_name = x.unwrap().file_name().to_str().unwrap().to_owned();
                 let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
-                (c, get_rays(&(input2.to_owned() + &dir_name + "/0.dat")))});
-    for thing in things {
+                (c, get_rays(&(input2.to_owned() + &dir_name + "/0.dat")))})
+        .collect();
+    for thing in &things {
         println!("{:?}", thing.0);
     }
+
+    let ray2 = &get_rays("/home/david/Downloads/dats/80/10.dat");
+    let best_match = &things.into_iter()
+        .min_by_key(|x| get_ray_delta(ray2, &x.1));
+    println!("Best match: {}", best_match.as_ref().unwrap().0);
 
     Ok(())
 }
