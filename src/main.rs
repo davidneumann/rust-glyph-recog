@@ -1,4 +1,4 @@
-use std::{cmp, fs::{File}, io::{self, Read}};
+use std::{cmp, fs::{self, File}, io::{self, Read}};
 mod glyph_rays;
 use glyph_rays::GlyphRays;
 
@@ -10,15 +10,20 @@ fn main() -> io::Result<()> {
     let ray2 = &get_rays(&(input.to_owned() + "1.dat"));
     println!("Delta: {}", get_ray_delta(rays, ray2));
     print_rays(ray2);
-    //let mut max_width = 0;
-    //for dir in fs::read_dir(input)? {
-    //    let dir = dir?;
-    //    let debug = dir.path();
-    //    let debug2 = debug.file_name().unwrap().to_str().unwrap();
-    //    max_width = cmp::max(max_width, _get_width(&(input.to_owned() + debug2)));
-    //    println!("{}", debug2);
-    //}
-    //println!("Max width: {}", max_width);
+
+    let input2 = "/home/david/Downloads/dats/";
+    let things = fs::read_dir(input2)?
+        .into_iter()
+        .filter(|x| x.as_ref().unwrap().path().is_dir())
+        .map(|x| 
+            {
+                let dir_name = x.unwrap().file_name().to_str().unwrap().to_owned();
+                let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
+                (c, get_rays(&(input2.to_owned() + &dir_name + "/0.dat")))});
+    for thing in things {
+        println!("{:?}", thing.0);
+    }
+
     Ok(())
 }
 
@@ -81,6 +86,7 @@ fn get_rays(input: &str) -> GlyphRays {
 fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> i32 {
     let max_width = cmp::max(r1.width, r2.width);
     let max_height = cmp::max(r1.height, r2.height);
+
     //Horizontal vecs
     let mut delta = 0;
     for y in 0..max_height {
@@ -90,6 +96,7 @@ fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> i32 {
         delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, 0);
     }
 
+    //Vertical vecs
     for x in 0..max_width {
         delta += get_vec_delta(&r1.t2b, &r2.t2b, x as usize, max_height);
         delta += get_vec_delta(&r1.b2t, &r2.b2t, x as usize, 0);
