@@ -2,6 +2,7 @@ use std::{cmp, fs::{self, File}, io::{self, Read}};
 mod glyph_rays;
 use glyph_rays::GlyphRays;
 use std::collections::HashMap;
+use std::time::Instant;
 
 fn main() -> io::Result<()> {
     let input = "/home/david/Downloads/dats/53/";
@@ -55,6 +56,7 @@ fn main() -> io::Result<()> {
         .filter(|x| x.as_ref().unwrap().path().is_dir())
         .map(|x| x.unwrap());
 
+    let start = Instant::now();
     let mut correct = 0;
     let mut total = 0;
     for dir in dirs {
@@ -72,13 +74,13 @@ fn main() -> io::Result<()> {
                 .min_by_key(|x| get_ray_delta(ray, &x.1));
             if best_match.as_ref().unwrap().0 == &c { correct += 1; }
             else {
-                println!("Incorrect match with {}/{}. Expected {}, Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().0);
+                println!("Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().0);
             }
             total += 1;
         }
     }
 
-    println!("Total: {}. Correct: {}", total, correct);
+    println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
 
 
     // let ray2 = &get_rays("/home/david/Downloads/dats/80/10.dat");
