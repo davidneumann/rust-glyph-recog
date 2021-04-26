@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 fn main() -> io::Result<()> {
-    let input = "/home/david/Downloads/dats/53/";
-    let _ = _parse_file(&(input.to_owned() + "199.dat"));
+    let input = "/home/david/Downloads/dats/39/";
+    let _ = _parse_file(&(input.to_owned() + "27.dat"));
     let rays = &get_rays(&(input.to_owned() + "199.dat"));
     println!("53/199");
     print_rays(rays);
