@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 fn main() -> io::Result<()> {
-    let input = "/home/david/Downloads/dats/39/";
-    let _ = _parse_file(&(input.to_owned() + "27.dat"));
+    let input = "/home/david/Downloads/dats/66/";
+    let _ = _parse_file(&(input.to_owned() + "0.dat"));
+    panic!();
     let rays = &get_rays(&(input.to_owned() + "199.dat"));
     println!("53/199");
     print_rays(rays);
@@ -38,7 +39,7 @@ fn main() -> io::Result<()> {
             .map(|x| x.unwrap());
         for file in files {
             let file_name = file.path().file_name().unwrap().to_str().unwrap().to_owned();
-            let size = get_sieze_from_dat(&(input2.to_owned() + &dir_name + "/" + &file_name));
+            let size = get_size_from_dat(&(input2.to_owned() + &dir_name + "/" + &file_name));
             let sub_dict = glyph_dict.entry(size).or_insert(HashMap::new());
             if !sub_dict.contains_key(&c) {
                 println!("Using {} for {} at {:?}", file_name, dir_name, &size);
@@ -91,7 +92,7 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn get_sieze_from_dat(input: &str) -> (i32, i32) {
+fn get_size_from_dat(input: &str) -> (i32, i32) {
     let mut fin = File::open(input).unwrap();
 
     let mut buffer = [0; 4];
@@ -250,29 +251,36 @@ fn _get_width(input: &str) -> i32{
 fn _parse_file(input: &str) -> io::Result<()> {
     let mut fin = File::open(input)?;
 
-    let mut buffer = [0; 4];
+    let mut buffer = [0; 2];
     fin.read(&mut buffer)?;
-    let width = i32::from_le_bytes(buffer);
+    let width = u16::from_le_bytes(buffer);
+    let mut buffer = [0; 1];
     fin.read(&mut buffer)?;
-    let _height = i32::from_le_bytes(buffer);
+    let height = u8::from_le_bytes(buffer);
+    fin.read(&mut buffer)?;
+    let _pixels_from_top = u8::from_le_bytes(buffer);
     let mut count = 0;
-    println!("{}: {},{}", &input, width, _height);
+    println!("{}: {},{} {}", &input, width, height, _pixels_from_top);
     let mut buffer = [0; 1];
     loop {
         let read = fin.read(&mut buffer)?;
         if read == 0 {
             break;
         }
-        if buffer[0] == 0 {
-            print!(" ");
-        }
-        else {
-            let c = std::char::from_u32(65).unwrap();
-            print!("{}", c);
-        }
-        count += 1;
-        if count % width == 0 {
-            println!("");
+        //let mut pixels = [false; 8];
+        for i in 0..8{
+            let pixel = (buffer[0] & (1 << 7 - i)) != 0;
+            if !pixel {
+                print!(" ");
+            }
+            else {
+                let c = std::char::from_u32(65).unwrap();
+                print!("{}", c);
+            }
+            count += 1;
+            if count % width == 0 {
+                println!("");
+            }
         }
     }
     println!("Count: {}", count);
