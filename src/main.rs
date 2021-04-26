@@ -38,13 +38,11 @@ fn main() -> io::Result<()> {
         for file in files {
             let file_name = file.path().file_name().unwrap().to_str().unwrap().to_owned();
             let size = get_sieze_from_dat(&(input2.to_owned() + &dir_name + "/" + &file_name));
-            if !glyph_dict.contains_key(&size) {
-                glyph_dict.insert(size, HashMap::new());
-            }
-            if !glyph_dict.get(&size).unwrap().contains_key(&c) {
+            let sub_dict = glyph_dict.entry(size).or_insert(HashMap::new());
+            if !sub_dict.contains_key(&c) {
                 println!("Using {} for {} at {:?}", file_name, dir_name, &size);
                 let ray = get_rays(&(input2.to_owned() + &dir_name + "/" + &file_name));
-                glyph_dict.entry(size).or_insert(HashMap::new()).entry(c.to_string()).or_insert(ray);
+                glyph_dict.get_mut(&size).unwrap().entry(c.to_string()).or_insert(ray);
             }
         }
     }
