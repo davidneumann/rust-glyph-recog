@@ -7,17 +7,14 @@ use std::time::Instant;
 fn main() -> io::Result<()> {
     let input = "/home/david/Downloads/dats/66/";
     let _ = _parse_file(&(input.to_owned() + "0.dat"));
-    panic!();
-    let rays = &get_rays(&(input.to_owned() + "199.dat"));
-    println!("53/199");
+    let rays = &get_rays(&(input.to_owned() + "0.dat"));
+    println!("66/0");
     print_rays(rays);
 
     let ray2 = &get_rays(&(input.to_owned() + "115.dat"));
-    println!("53/115");
+    println!("66/115");
     print_rays(ray2);
     println!("Delta to Ref: {}", get_ray_delta(rays, ray2));
-
-
 
     let input2 = "/home/david/Downloads/dats/";
     let ray_l = &get_rays(&(input2.to_owned() + "54/229.dat"));
@@ -27,7 +24,7 @@ fn main() -> io::Result<()> {
     //panic!("");
 
 
-    let mut glyph_dict : HashMap<(i32, i32), HashMap<String, GlyphRays>> = HashMap::new();
+    let mut glyph_dict : HashMap<(u16, u8), HashMap<String, GlyphRays>> = HashMap::new();
     //let glyph_dict : Vec<(String, GlyphRays)> = fs::read_dir(input2)?
     for x in fs::read_dir(input2)?.into_iter().filter(|x| x.as_ref().unwrap().path().is_dir())
     {
@@ -92,14 +89,15 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn get_size_from_dat(input: &str) -> (i32, i32) {
+fn get_size_from_dat(input: &str) -> (u16, u8) {
     let mut fin = File::open(input).unwrap();
 
-    let mut buffer = [0; 4];
+    let mut buffer = [0; 2];
     fin.read(&mut buffer).unwrap();
-    let width = i32::from_le_bytes(buffer);
+    let width = u16::from_le_bytes(buffer);
+    let mut buffer = [0; 1];
     fin.read(&mut buffer).unwrap();
-    let height = i32::from_le_bytes(buffer);
+    let height = u8::from_le_bytes(buffer);
     (width, height)
 }
 
@@ -107,11 +105,14 @@ fn get_rays(input: &str) -> GlyphRays {
     //println!("Trying to open {}", input);
     let mut fin = File::open(input).unwrap();
 
-    let mut buffer = [0; 4];
+    let mut buffer = [0; 2];
     fin.read(&mut buffer).unwrap();
-    let width = i32::from_le_bytes(buffer);
+    let width = u16::from_le_bytes(buffer);
+    let mut buffer = [0; 1];
     fin.read(&mut buffer).unwrap();
-    let height = i32::from_le_bytes(buffer);
+    let height = u8::from_le_bytes(buffer) as u16;
+    fin.read(&mut buffer).unwrap();
+    let _pixels_from_top = u8::from_le_bytes(buffer);
     // println!("{},{}", width, height);
 
     let mut rays = GlyphRays {
@@ -124,7 +125,7 @@ fn get_rays(input: &str) -> GlyphRays {
         m2r: vec![width / 2; height as usize],
         m2b: vec![height / 2; width as usize],
         width,
-        height,
+        height: height as u8,
     };
 
     //    let mut l2r = vec![width; height as usize];
@@ -138,23 +139,26 @@ fn get_rays(input: &str) -> GlyphRays {
             break;
         }
 
-        let x = count % width;
-        let y = count / width;
-        if buffer[0] != 0 {
-            rays.l2r[(y as usize)] = cmp::min(x, rays.l2r[(y as usize)]);
-            rays.r2l[(y as usize)] = cmp::min(width - x - 1, rays.r2l[(y as usize)]);
-            rays.t2b[(x as usize)] = cmp::min(y, rays.t2b[(x as usize)]);
-            rays.b2t[(x as usize)] = cmp::min(height - y - 1, rays.b2t[(x as usize)]);
-            if x <  width  / 2 { rays.m2l[(y as usize)] = cmp::min(width / 2 - x, rays.m2l[(y as usize)]); }
-            if x >=  width  / 2 { rays.m2r[(y as usize)] = cmp::min(x - width / 2, rays.m2r[(y as usize)]); }
-            if y <  height / 2 { rays.m2t[(x as usize)] = cmp::min(height / 2 - y, rays.m2t[(x as usize)]); }
-            if y >=  height / 2 { rays.m2b[(x as usize)] = cmp::min(y - height / 2, rays.m2b[(x as usize)]); }
-            // print!("X");
+        for i in 0..8{
+            let x = count % width;
+            let y = count / width;
+            let pixel = (buffer[0] & (1 << 7 - i)) != 0;
+            if pixel {
+                rays.l2r[(y as usize)] = cmp::min(x, rays.l2r[(y as usize)]);
+                rays.r2l[(y as usize)] = cmp::min(width - x - 1, rays.r2l[(y as usize)]);
+                rays.t2b[(x as usize)] = cmp::min(y, rays.t2b[(x as usize)]);
+                rays.b2t[(x as usize)] = cmp::min(height - y - 1, rays.b2t[(x as usize)]);
+                if x <  width  / 2 { rays.m2l[(y as usize)] = cmp::min(width / 2 - x, rays.m2l[(y as usize)]); }
+                if x >=  width  / 2 { rays.m2r[(y as usize)] = cmp::min(x - width / 2, rays.m2r[(y as usize)]); }
+                if y <  height / 2 { rays.m2t[(x as usize)] = cmp::min(height / 2 - y, rays.m2t[(x as usize)]); }
+                if y >=  height / 2 { rays.m2b[(x as usize)] = cmp::min(y - height / 2, rays.m2b[(x as usize)]); }
+                // print!("X");
+            }
+            //else { print! (" ");}
+            //println!("x:{}, y:{}, {}", x, y, buffer[0]);
+            count += 1;
+            //if count % width == 0 {println!("");}
         }
-        //else { print! (" ");}
-        //println!("x:{}, y:{}, {}", x, y, buffer[0]);
-        count += 1;
-        //if count % width == 0 {println!("");}
     }
 
     return rays;
@@ -168,9 +172,9 @@ fn dispaly_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: 
     println!("{}\n{:?}\n{:?}", label, first_clone, second_clone);
 }
 
-fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> i32 {
+fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u16 {
     let max_width = cmp::max(r1.width, r2.width) - 1;
-    let max_height = cmp::max(r1.height, r2.height) - 1;
+    let max_height = (cmp::max(r1.height, r2.height) - 1) as u16;
     let _debug = cmp::max(r1.r2l.len(), r2.r2l.len());
 
     //println!("Max width: {}. Max height: {}", max_width, max_height);
@@ -203,7 +207,7 @@ fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> i32 {
     delta
 }
 
-fn get_vec_delta(l:&Vec<i32>, r:&Vec<i32>, index:usize, max_value:i32, stretch_limit:usize) -> i32 {
+fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_limit:usize) -> u16 {
     //let max_value =
     //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
     //    else if index < l.len() { l[index] }
@@ -212,7 +216,12 @@ fn get_vec_delta(l:&Vec<i32>, r:&Vec<i32>, index:usize, max_value:i32, stretch_l
         if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
     let right =
         if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
-    (right - left).abs()
+    if right > left {
+        right - left
+    }
+    else {
+        left - right
+    }
 }
 
 fn print_rays(rays: &GlyphRays) -> () {
@@ -221,18 +230,23 @@ fn print_rays(rays: &GlyphRays) -> () {
     println!("r2l {:?}", rays.r2l);
     println!("t2b {:?}", rays.t2b);
     println!("b2t {:?}", rays.b2t);
+    println!("m2l {:?}", rays.m2l);
+    println!("m2r {:?}", rays.m2r);
+    println!("m2t {:?}", rays.m2t);
+    println!("m2b {:?}", rays.m2b);
     println!("width {:?} height {:?}", rays.width, rays.height);
 
-    for y in 0..rays.height {
+    let height = rays.height as u16;
+    for y in 0..height {
         for x in 0..rays.width {
             if rays.l2r[(y as usize)] == x      { print!("X"); }
             else if rays.width - 1 - rays.r2l[(y as usize)] == x { print!("X"); }
             else if rays.t2b[(x as usize)] == y { print!("X"); }
-            else if rays.height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
+            else if height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
             else if rays.width / 2 - rays.m2l[(y as usize)] == x { print!("X"); }
             else if rays.m2r[(y as usize)] + rays.width / 2 == x { print!("X"); }
-            else if rays.height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
-            else if rays.m2b[(x as usize)] + rays.height / 2 == y { print!("X"); }
+            else if height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
+            else if rays.m2b[(x as usize)] + height / 2 == y { print!("X"); }
             else { print!(" "); }
         }
         println!();
@@ -267,7 +281,6 @@ fn _parse_file(input: &str) -> io::Result<()> {
         if read == 0 {
             break;
         }
-        //let mut pixels = [false; 8];
         for i in 0..8{
             let pixel = (buffer[0] & (1 << 7 - i)) != 0;
             if !pixel {
