@@ -69,6 +69,7 @@ fn main() -> io::Result<()> {
             let file_name = file_path.file_name().unwrap().to_str().unwrap();
             let ray = &get_rays(&(input2.to_owned() + &dir_name.to_owned() + "/" + &file_name));
             let best_match = (&glyph_dict[&(ray.width, ray.height)]).into_iter()
+                .filter(|glyph| (ray.pixels_from_top - glyph.1.pixels_from_top).abs() <= 2)
                 .min_by_key(|x| get_ray_delta(ray, &x.1));
             if best_match.as_ref().unwrap().0 == &c { correct += 1; }
             else {
@@ -112,7 +113,7 @@ fn get_rays(input: &str) -> GlyphRays {
     fin.read(&mut buffer).unwrap();
     let height = u8::from_le_bytes(buffer) as u16;
     fin.read(&mut buffer).unwrap();
-    let _pixels_from_top = u8::from_le_bytes(buffer);
+    let pixels_from_top = u8::from_le_bytes(buffer);
     // println!("{},{}", width, height);
 
     let mut rays = GlyphRays {
@@ -126,6 +127,7 @@ fn get_rays(input: &str) -> GlyphRays {
         m2b: vec![height / 2; width as usize],
         width,
         height: height as u8,
+        pixels_from_top: pixels_from_top as i8,
     };
 
     //    let mut l2r = vec![width; height as usize];
