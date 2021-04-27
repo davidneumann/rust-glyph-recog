@@ -54,6 +54,7 @@ fn main() -> io::Result<()> {
         .filter(|x| x.as_ref().unwrap().path().is_dir())
         .map(|x| x.unwrap());
 
+    let mut max_error: HashMap<(u16, u8, &String), i32> = HashMap::new();
     let start = Instant::now();
     let mut correct = 0;
     let mut total = 0;
@@ -71,6 +72,11 @@ fn main() -> io::Result<()> {
             let best_match = (&glyph_dict[&(ray.width, ray.height)]).into_iter()
                 .filter(|glyph| (ray.pixels_from_top - glyph.1.pixels_from_top).abs() <= 2)
                 .min_by_key(|x| get_ray_delta(ray, &x.1));
+            let score = get_ray_delta(ray, &best_match.unwrap().1) as i32;
+            let key = (ray.width, ray.height, best_match.unwrap().0);
+            if score > *max_error.entry(key).or_insert(0) {
+                *max_error.get_mut(&key).unwrap() = score;
+            }
             if best_match.as_ref().unwrap().0 == &c { correct += 1; }
             else {
                 println!("Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().0);
@@ -80,6 +86,9 @@ fn main() -> io::Result<()> {
     }
 
     println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
+    for item in max_error {
+        println!("Max error: {:?} = {:?}", item.0, item.1);
+    }
 
 
     // let ray2 = &get_rays("/home/david/Downloads/dats/80/10.dat");
