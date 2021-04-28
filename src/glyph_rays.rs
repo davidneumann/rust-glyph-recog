@@ -1,3 +1,8 @@
+use std::fs::File;
+use std::io;
+use std::cmp;
+use io::Read;
+
 pub struct GlyphRays{
     pub width:u16,
     pub height:u8,
@@ -10,4 +15,70 @@ pub struct GlyphRays{
     pub m2t: Vec<u16>,
     pub m2r: Vec<u16>,
     pub m2b: Vec<u16>
+}
+
+impl GlyphRays {
+    pub fn from_file(input: &str) -> GlyphRays {
+        //println!("Trying to open {}", input);
+        let mut fin = File::open(input).unwrap();
+
+        let mut buffer = [0; 2];
+        fin.read(&mut buffer).unwrap();
+        let width = u16::from_le_bytes(buffer);
+        let mut buffer = [0; 1];
+        fin.read(&mut buffer).unwrap();
+        let height = u8::from_le_bytes(buffer) as u16;
+        fin.read(&mut buffer).unwrap();
+        let pixels_from_top = u8::from_le_bytes(buffer);
+        // println!("{},{}", width, height);
+
+        let mut rays = GlyphRays {
+            l2r: vec![width; height as usize],
+            t2b: vec![height; width as usize],
+            r2l: vec![width; height as usize],
+            b2t: vec![height; width as usize],
+            m2l: vec![width / 2; height as usize],
+            m2t: vec![height / 2; width as usize],
+            m2r: vec![width / 2; height as usize],
+            m2b: vec![height / 2; width as usize],
+            width,
+            height: height as u8,
+            pixels_from_top: pixels_from_top as i8,
+        };
+
+        //    let mut l2r = vec![width; height as usize];
+
+        let mut buffer = [0; 1];
+
+        let mut count = 0;
+        loop {
+            let read = fin.read(&mut buffer).unwrap();
+            if read == 0 {
+                break;
+            }
+
+            for i in 0..8{
+                let x = count % width;
+                let y = count / width;
+                let pixel = (buffer[0] & (1 << 7 - i)) != 0;
+                if pixel {
+                    rays.l2r[(y as usize)] = cmp::min(x, rays.l2r[(y as usize)]);
+                    rays.r2l[(y as usize)] = cmp::min(width - x - 1, rays.r2l[(y as usize)]);
+                    rays.t2b[(x as usize)] = cmp::min(y, rays.t2b[(x as usize)]);
+                    rays.b2t[(x as usize)] = cmp::min(height - y - 1, rays.b2t[(x as usize)]);
+                    if x <  width  / 2 { rays.m2l[(y as usize)] = cmp::min(width / 2 - x, rays.m2l[(y as usize)]); }
+                    if x >=  width  / 2 { rays.m2r[(y as usize)] = cmp::min(x - width / 2, rays.m2r[(y as usize)]); }
+                    if y <  height / 2 { rays.m2t[(x as usize)] = cmp::min(height / 2 - y, rays.m2t[(x as usize)]); }
+                    if y >=  height / 2 { rays.m2b[(x as usize)] = cmp::min(y - height / 2, rays.m2b[(x as usize)]); }
+                    // print!("X");
+                }
+                //else { print! (" ");}
+                //println!("x:{}, y:{}, {}", x, y, buffer[0]);
+                count += 1;
+                //if count % width == 0 {println!("");}
+            }
+        }
+
+        return rays;
+    }
 }
