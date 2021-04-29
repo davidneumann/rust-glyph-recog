@@ -74,9 +74,9 @@ fn main() -> io::Result<()> {
     }
 
     println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
-    for item in max_error {
-        println!("Max error: {:?} = {:?}", item.0, item.1);
-    }
+    //for item in max_error {
+    //    println!("Max error: {:?} = {:?}", item.0, item.1);
+    //}
 
 
     // let ray2 = &GlyphRays::from_file("/home/david/Downloads/dats/80/10.dat");
@@ -95,7 +95,7 @@ fn dispaly_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: 
     println!("{}\n{:?}\n{:?}", label, first_clone, second_clone);
 }
 
-fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u16 {
+fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
     let max_width = cmp::max(r1.width, r2.width) - 1;
     let max_height = (cmp::max(r1.height, r2.height) - 1) as u16;
     let _debug = cmp::max(r1.r2l.len(), r2.r2l.len());
@@ -111,23 +111,26 @@ fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u16 {
     //dispaly_vec_with_max("m2b", &r1.m2b, &r2.m2b, max_height);
 
     //Horizontal vecs
-    let mut delta = 0;
+    let mut horiz_delta = 0.0;
     for y in 0..=max_height {
-        delta += get_vec_delta(&r1.l2r, &r2.l2r, y as usize, max_width, 0);
-        delta += get_vec_delta(&r1.r2l, &r2.r2l, y as usize, max_width, 0);
-        delta += get_vec_delta(&r1.m2r, &r2.m2r, y as usize, max_width / 2, 0);
-        delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, max_width / 2, 0);
+        horiz_delta += get_vec_delta(&r1.l2r, &r2.l2r, y as usize, max_width, 0)     as f64;
+        horiz_delta += get_vec_delta(&r1.r2l, &r2.r2l, y as usize, max_width, 0)     as f64;
+        horiz_delta += get_vec_delta(&r1.m2r, &r2.m2r, y as usize, max_width / 2, 0) as f64;
+        horiz_delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, max_width / 2, 0) as f64;
     }
+    horiz_delta = horiz_delta / max_width as f64;
 
     //Vertical vecs
+    let mut vert_delta = 0.0;
     for x in 0..=max_width  {
-        delta += get_vec_delta(&r1.t2b, &r2.t2b, x as usize, max_height, 2);
-        delta += get_vec_delta(&r1.b2t, &r2.b2t, x as usize, max_height, 2);
-        delta += get_vec_delta(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2);
-        delta += get_vec_delta(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2);
+        vert_delta += get_vec_delta(&r1.t2b, &r2.t2b, x as usize, max_height, 2)     as f64;
+        vert_delta += get_vec_delta(&r1.b2t, &r2.b2t, x as usize, max_height, 2)     as f64;
+        vert_delta += get_vec_delta(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
+        vert_delta += get_vec_delta(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
     }
+    vert_delta = vert_delta / max_height as f64;
 
-    delta
+    ((vert_delta + horiz_delta) * 100.0) as u32
 }
 
 fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_limit:usize) -> u16 {
