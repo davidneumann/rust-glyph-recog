@@ -14,7 +14,8 @@ pub struct GlyphRays{
     pub m2l: Vec<u16>,
     pub m2t: Vec<u16>,
     pub m2r: Vec<u16>,
-    pub m2b: Vec<u16>
+    pub m2b: Vec<u16>,
+    pub raw: Vec<bool>,
 }
 
 impl GlyphRays {
@@ -32,7 +33,7 @@ impl GlyphRays {
         let pixels_from_top = u8::from_le_bytes(buffer);
         // println!("{},{}", width, height);
 
-        let mut rays = GlyphRays {
+        let mut ray = GlyphRays {
             l2r: vec![width; height as usize],
             t2b: vec![height; width as usize],
             r2l: vec![width; height as usize],
@@ -44,6 +45,7 @@ impl GlyphRays {
             width,
             height: height as u8,
             pixels_from_top: pixels_from_top as i8,
+            raw: vec![false; (width & height) as usize],
         };
 
         //    let mut l2r = vec![width; height as usize];
@@ -61,15 +63,16 @@ impl GlyphRays {
                 let x = count % width;
                 let y = count / width;
                 let pixel = (buffer[0] & (1 << 7 - i)) != 0;
+                ray.raw[count as usize] = pixel;
                 if pixel {
-                    rays.l2r[(y as usize)] = cmp::min(x, rays.l2r[(y as usize)]);
-                    rays.r2l[(y as usize)] = cmp::min(width - x - 1, rays.r2l[(y as usize)]);
-                    rays.t2b[(x as usize)] = cmp::min(y, rays.t2b[(x as usize)]);
-                    rays.b2t[(x as usize)] = cmp::min(height - y - 1, rays.b2t[(x as usize)]);
-                    if x <  width  / 2 { rays.m2l[(y as usize)] = cmp::min(width / 2 - x, rays.m2l[(y as usize)]); }
-                    if x >=  width  / 2 { rays.m2r[(y as usize)] = cmp::min(x - width / 2, rays.m2r[(y as usize)]); }
-                    if y <  height / 2 { rays.m2t[(x as usize)] = cmp::min(height / 2 - y, rays.m2t[(x as usize)]); }
-                    if y >=  height / 2 { rays.m2b[(x as usize)] = cmp::min(y - height / 2, rays.m2b[(x as usize)]); }
+                    ray.l2r[(y as usize)] = cmp::min(x, ray.l2r[(y as usize)]);
+                    ray.r2l[(y as usize)] = cmp::min(width - x - 1, ray.r2l[(y as usize)]);
+                    ray.t2b[(x as usize)] = cmp::min(y, ray.t2b[(x as usize)]);
+                    ray.b2t[(x as usize)] = cmp::min(height - y - 1, ray.b2t[(x as usize)]);
+                    if x <  width  / 2 { ray.m2l[(y as usize)] = cmp::min(width / 2 - x, ray.m2l[(y as usize)]); }
+                    if x >=  width  / 2 { ray.m2r[(y as usize)] = cmp::min(x - width / 2, ray.m2r[(y as usize)]); }
+                    if y <  height / 2 { ray.m2t[(x as usize)] = cmp::min(height / 2 - y, ray.m2t[(x as usize)]); }
+                    if y >=  height / 2 { ray.m2b[(x as usize)] = cmp::min(y - height / 2, ray.m2b[(x as usize)]); }
                     // print!("X");
                 }
                 //else { print! (" ");}
@@ -79,6 +82,6 @@ impl GlyphRays {
             }
         }
 
-        return rays;
+        return ray;
     }
 }

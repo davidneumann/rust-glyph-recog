@@ -74,9 +74,9 @@ fn main() -> io::Result<()> {
     }
 
     println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
-    //for item in max_error {
-    //    println!("Max error: {:?} = {:?}", item.0, item.1);
-    //}
+    for item in max_error {
+        println!("Max error: {:?} = {:?}", item.0, item.1);
+    }
 
 
     // let ray2 = &GlyphRays::from_file("/home/david/Downloads/dats/80/10.dat");
