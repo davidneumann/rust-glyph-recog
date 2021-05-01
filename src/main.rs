@@ -57,7 +57,7 @@ fn main() -> io::Result<()> {
             let file_path = file.path();
             let file_name = file_path.file_name().unwrap().to_str().unwrap();
             let ray = &GlyphRays::from_file(&(input2.to_owned() + &dir_name.to_owned() + "/" + &file_name));
-            let best_match = dataset.get(&ray.width, &ray.height).into_iter()
+            let best_match = dataset.get(&ray.width, &ray.height).unwrap().into_iter()
                 .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
                 .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
             let score = get_ray_delta(ray, &best_match.unwrap().ray) as i32;
@@ -73,21 +73,50 @@ fn main() -> io::Result<()> {
         }
     }
 
-    println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
-    for item in max_error {
+    for item in &max_error {
         println!("Max error: {:?} = {:?}", item.0, item.1);
     }
+    println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
 
+    let overlap_dir = "/home/david/Downloads/0/";
+    let mut total = 0;
+    let mut found_match = 0;
+    let files = fs::read_dir(overlap_dir)?
+        .into_iter()
+        .map(|x| x.unwrap());
+    for file in files {
+        let file_path = file.path();
+        let file_name = file_path.file_name().unwrap().to_str().unwrap();
+        let ray = &GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
+        match dataset.get(&ray.width, &ray.height) {
+            Some(glyphs) => {
+                let best_match = glyphs.into_iter()
+                    .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                    .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                match best_match {
+                    Some(best_match) => {
+                        let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, &best_match.value)).unwrap() as f64 * 1.5) as u32);
+                        let error = &get_ray_delta(ray, &best_match.ray);
+                        if error <= expected_error {
+                            println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
+                                     expected_error);
+                            found_match += 1;
+                        }
+                    },
+                    _ => (),
+                }
+            },
+            _ => (),
+        }
+        total += 1;
+    }
+    println!("Total overlaps: {}. Found matches: {}", total, found_match);
 
-    // let ray2 = &GlyphRays::from_file("/home/david/Downloads/dats/80/10.dat");
-    // let best_match = &glyph_dict.into_iter()
-    //     .min_by_key(|x| get_ray_delta(ray2, &x.1));
-    // println!("Best match: {}", best_match.as_ref().unwrap().0);
 
     Ok(())
 }
 
-fn dispaly_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
+fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
     let mut first_clone= first.clone();
     let mut second_clone = second.clone();
     if first_clone.len() < second_clone.len() { first_clone.push(first[first.len() - 1]); }
@@ -150,7 +179,7 @@ fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_l
     }
 }
 
-fn print_rays(rays: &GlyphRays) -> () {
+fn _print_rays(rays: &GlyphRays) -> () {
     println!();
     println!("l2r {:?}", rays.l2r);
     println!("r2l {:?}", rays.r2l);

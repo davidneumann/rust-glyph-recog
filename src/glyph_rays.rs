@@ -45,7 +45,7 @@ impl GlyphRays {
             width,
             height: height as u8,
             pixels_from_top: pixels_from_top as i8,
-            raw: vec![false; (width & height) as usize],
+            raw: vec![false; (width * height) as usize],
         };
 
         //    let mut l2r = vec![width; height as usize];
@@ -78,6 +78,7 @@ impl GlyphRays {
                 //else { print! (" ");}
                 //println!("x:{}, y:{}, {}", x, y, buffer[0]);
                 count += 1;
+                if count as usize >= ray.raw.len() { break; }
                 //if count % width == 0 {println!("");}
             }
         }

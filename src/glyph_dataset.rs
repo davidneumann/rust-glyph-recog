@@ -38,8 +38,12 @@ impl GlyphDataset {
         }
     }
 
-    pub fn get(&self, width:&u16, height:&u8) -> &Vec<Glyph> {
-        self.glyph_dict.get(height).unwrap().get(width).unwrap()
+    pub fn get(&self, width:&u16, height:&u8) -> Option<&Vec<Glyph>> {
+        let _debug = self.glyph_dict.get(height);
+        match self.glyph_dict.get(height) {
+            Some(d) => d.get(width),
+            None => None
+        }
     }
 }
 
