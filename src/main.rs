@@ -78,6 +78,7 @@ fn main() -> io::Result<()> {
     }
     println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
 
+    let start = Instant::now();
     let overlap_dir = "/home/david/Downloads/0/";
     let mut total = 0;
     let mut found_match = 0;
@@ -110,7 +111,7 @@ fn main() -> io::Result<()> {
         }
         total += 1;
     }
-    println!("Total overlaps: {}. Found matches: {}", total, found_match);
+    println!("Total overlaps: {}. Found matches: {}. Took {:?}", total, found_match, start.elapsed());
 
 
     Ok(())
