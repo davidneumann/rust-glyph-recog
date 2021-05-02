@@ -1,4 +1,4 @@
-use std::{cmp, fs::{self, File}, io::{self, Read}};
+use std::{cmp, fs::{self, File}, io::{self, Read}, sync::{Arc, Mutex}};
 mod glyph_rays;
 mod glyph;
 mod glyph_dataset;
@@ -6,71 +6,96 @@ use glyph_dataset::GlyphDataset;
 use glyph_rays::GlyphRays;
 use std::collections::HashMap;
 use std::time::Instant;
+use rayon::prelude::*;
 
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
-    //let input = "/home/david/Downloads/dats/0/";
-    ////for file in fs::read_dir(input)?{
-    ////    _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
-    ////}
-    ////panic!();
-    //let _ = _parse_file(&(input.to_owned() + "0.dat"));
-    //let rays = &GlyphRays::from_file(&(input.to_owned() + "0.dat"));
-    //println!("66/0");
-    //let _debug = "test";
-    //print_rays(rays);
+    // let input = "/home/david/Downloads/0/";
+    // //for file in fs::read_dir(input)?{
+    // //    _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
+    // //}
+    // //panic!();
+    // let _ = _parse_file(&(input.to_owned() + "396.dat"));
+    // let rays = &GlyphRays::from_file(&(input.to_owned() + "396.dat"));
+    // println!("66/0");
+    // let _debug = "test";
+    // print_rays(rays);
+    // panic!();
 
-    //let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
-    //println!("66/115");
-    //print_rays(ray2);
-    //println!("Delta to Ref: {}", get_ray_delta(rays, ray2));
 
-    //let input2 = "/home/david/Downloads/dats/";
-    //let ray_l = &GlyphRays::from_file(&(input2.to_owned() + "54/229.dat"));
-    //println!("54/229");
-    //print_rays(ray_l);
-    //println!("Delta for l and \"I\": {}", get_ray_delta(ray2, ray_l));
-    ////panic!("");
+    // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
+    // println!("66/115");
+    // print_rays(ray2);
+    // println!("Delta to Ref: {}", get_ray_delta(rays, ray2));
+
+    // let input2 = "/home/david/Downloads/dats/";
+    // let ray_l = &GlyphRays::from_file(&(input2.to_owned() + "54/229.dat"));
+    // println!("54/229");
+    // print_rays(ray_l);
+    // println!("Delta for l and \"I\": {}", get_ray_delta(ray2, ray_l));
+    // //panic!("");
 
 
     let input2 = "/home/david/Downloads/dats/";
     // Update this to use glyph_dataset
     let dataset = GlyphDataset::build_from_dir(&input2);
-    let dirs = fs::read_dir(input2)?
-        .into_iter()
+    let dirs:Vec<std::path::PathBuf> = fs::read_dir(input2).unwrap()
         .filter(|x| x.as_ref().unwrap().path().is_dir())
-        .map(|x| x.unwrap());
+        .map(|x| x.unwrap().path())
+        .collect();
 
-    let mut max_error: HashMap<(u16, u8, &String), i32> = HashMap::new();
     let start = Instant::now();
-    let mut correct = 0;
+    let test:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
+        .map(|dir| -> Vec<(bool, (u16, u8, String), i32)> {
+            // //for dir in dirs {
+            let dir_name = dir.file_name().unwrap().to_str().unwrap().to_owned();
+            let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
+            fs::read_dir(input2.to_owned() + dir.file_name().unwrap().to_str().unwrap()).unwrap()
+                .into_iter()
+                .par_bridge()
+                .map(|x| x.unwrap())
+                .map(|file| {
+                    //for file in files {
+                    let file_path = file.path();
+                    let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                    let ray = &GlyphRays::from_file(&(input2.to_owned() + &dir_name.to_owned() + "/" + &file_name));
+                    let best_match = dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+                        .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                    let score = get_ray_delta(ray, &best_match.unwrap().ray) as i32;
+                    // let key = (ray.width, ray.height, &best_match.unwrap().value);
+                    // if score > *max_error.entry(key).or_insert(0) {
+                    //     *max_error.get_mut(&key).unwrap() = score;
+                    // }
+                    //if &best_match.as_ref().unwrap().value == &c { correct += 1; }
+                    if &best_match.as_ref().unwrap().value == &c { return (true, (ray.width, ray.height, c.clone()), score); }
+                    else {
+                        println!("Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().value);
+                        return (false, (ray.width, ray.height, c.clone()), 0);
+                    }
+                    //total += 1;
+                    //}
+                })
+            .collect()
+                //}
+        })
+    .flatten()
+        .collect();
+
     let mut total = 0;
-    for dir in dirs {
-        let dir_name = dir.file_name().to_str().unwrap().to_owned();
-        let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
-        let files = fs::read_dir(input2.to_owned() + dir.path().file_name().unwrap().to_str().unwrap())?
-            .into_iter()
-            .filter(|x| x.as_ref().unwrap().path().file_name().unwrap() != "0.dat")
-            .map(|x| x.unwrap());
-        for file in files {
-            let file_path = file.path();
-            let file_name = file_path.file_name().unwrap().to_str().unwrap();
-            let ray = &GlyphRays::from_file(&(input2.to_owned() + &dir_name.to_owned() + "/" + &file_name));
-            let best_match = dataset.get(&ray.width, &ray.height).unwrap().into_iter()
-                .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
-                .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
-            let score = get_ray_delta(ray, &best_match.unwrap().ray) as i32;
-            let key = (ray.width, ray.height, &best_match.unwrap().value);
-            if score > *max_error.entry(key).or_insert(0) {
-                *max_error.get_mut(&key).unwrap() = score;
+    let mut correct = 0;
+    let mut max_error: HashMap<(u16, u8, String), i32> = HashMap::new();
+    for (item, (width, height, c), score) in test {
+        if item == true {
+            correct += 1;
+            let existing = *max_error.entry((width, height, c.clone())).or_insert(0);
+            if score > existing {
+                *max_error.get_mut(&(width, height, c.clone())).unwrap() = score;
+                //println!("Adding new max error {},{} {}: {}", width, height, &c, score);
             }
-            if &best_match.as_ref().unwrap().value == &c { correct += 1; }
-            else {
-                println!("Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().value);
-            }
-            total += 1;
         }
+        total += 1;
     }
 
     for item in &max_error {
@@ -80,12 +105,14 @@ fn main() -> io::Result<()> {
 
     let start = Instant::now();
     let overlap_dir = "/home/david/Downloads/0/";
-    let mut total = 0;
-    let mut found_match = 0;
-    let files = fs::read_dir(overlap_dir)?
+    let total = Arc::new(Mutex::new(0));
+    let found_match = Arc::new(Mutex::new(0));
+    fs::read_dir(overlap_dir)?
         .into_iter()
-        .map(|x| x.unwrap());
-    for file in files {
+        .par_bridge()
+        .map(|x| x.unwrap())
+        .for_each(|file| {
+    //for file in files {
         let file_path = file.path();
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
         let ray = &GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
@@ -96,12 +123,12 @@ fn main() -> io::Result<()> {
                     .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
                 match best_match {
                     Some(best_match) => {
-                        let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, &best_match.value)).unwrap() as f64 * 1.5) as u32);
+                        let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, best_match.value.clone())).unwrap() as f64 * 1.5) as u32);
                         let error = &get_ray_delta(ray, &best_match.ray);
                         if error <= expected_error {
                             println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
                                      expected_error);
-                            found_match += 1;
+                            *found_match.lock().unwrap() += 1;
                         }
                     },
                     _ => (),
@@ -109,9 +136,9 @@ fn main() -> io::Result<()> {
             },
             _ => (),
         }
-        total += 1;
-    }
-    println!("Total overlaps: {}. Found matches: {}. Took {:?}", total, found_match, start.elapsed());
+        *total.lock().unwrap() += 1;
+    });
+    println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), found_match.lock().unwrap(), start.elapsed());
 
 
     Ok(())
@@ -180,7 +207,7 @@ fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_l
     }
 }
 
-fn _print_rays(rays: &GlyphRays) -> () {
+fn print_rays(rays: &GlyphRays) -> () {
     println!();
     println!("l2r {:?}", rays.l2r);
     println!("r2l {:?}", rays.r2l);
@@ -195,14 +222,14 @@ fn _print_rays(rays: &GlyphRays) -> () {
     let height = rays.height as u16;
     for y in 0..height {
         for x in 0..rays.width {
-            if rays.l2r[(y as usize)] == x      { print!("X"); }
-            else if rays.width - 1 - rays.r2l[(y as usize)] == x { print!("X"); }
-            else if rays.t2b[(x as usize)] == y { print!("X"); }
-            else if height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
-            else if rays.width / 2 - rays.m2l[(y as usize)] == x { print!("X"); }
-            else if rays.m2r[(y as usize)] + rays.width / 2 == x { print!("X"); }
-            else if height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
-            else if rays.m2b[(x as usize)] + height / 2 == y { print!("X"); }
+            if x < rays.width - 1 &&  rays.l2r[(y as usize)] == x      { print!("X"); }
+            else if x > 0 && rays.r2l[y as usize] < rays.width && rays.width - 1 - rays.r2l[(y as usize)] == x { print!("X"); }
+            else if y < height - 1 && rays.t2b[(x as usize)] == y { print!("X"); }
+            else if y > 0 && rays.b2t[(x as usize)] < height && height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
+            else if x > 0 && rays.width / 2 - rays.m2l[(y as usize)] == x { print!("X"); }
+            else if x > 0 && rays.m2r[(y as usize)] + rays.width / 2 == x { print!("X"); }
+            else if y > 0 && height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
+            else if y < height - 1 && rays.m2b[(x as usize)] + height / 2 == y { print!("X"); }
             else { print!(" "); }
         }
         println!();
