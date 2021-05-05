@@ -8,13 +8,13 @@ pub struct GlyphRays{
     pub height:u8,
     pub pixels_from_top:i8,
     pub l2r: Vec<u16>,
-    pub t2b: Vec<u16>,
+    pub t2b: Vec<u8>,
     pub r2l: Vec<u16>,
-    pub b2t: Vec<u16>,
+    pub b2t: Vec<u8>,
     pub m2l: Vec<u16>,
-    pub m2t: Vec<u16>,
+    pub m2t: Vec<u8>,
     pub m2r: Vec<u16>,
-    pub m2b: Vec<u16>,
+    pub m2b: Vec<u8>,
     pub raw: Vec<bool>,
 }
 
@@ -28,7 +28,7 @@ impl GlyphRays {
         let width = u16::from_le_bytes(buffer);
         let mut buffer = [0; 1];
         fin.read(&mut buffer).unwrap();
-        let height = u8::from_le_bytes(buffer) as u16;
+        let height = u8::from_le_bytes(buffer);
         fin.read(&mut buffer).unwrap();
         let pixels_from_top = u8::from_le_bytes(buffer);
         // println!("{},{}", width, height);
@@ -45,7 +45,7 @@ impl GlyphRays {
             width,
             height: height as u8,
             pixels_from_top: pixels_from_top as i8,
-            raw: vec![false; (width * height) as usize],
+            raw: vec![false; (width * (height as u16)) as usize],
         };
 
         //    let mut l2r = vec![width; height as usize];
@@ -61,7 +61,7 @@ impl GlyphRays {
 
             for i in 0..8{
                 let x = count % width;
-                let y = count / width;
+                let y = (count / width) as u8;
                 let pixel = (buffer[0] & (1 << 7 - i)) != 0;
                 ray.raw[count as usize] = pixel;
                 if pixel {

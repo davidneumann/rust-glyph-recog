@@ -1,14 +1,18 @@
-use std::{collections::HashMap, fs::{self, File}, io::Read};
+use std::{cmp, collections::HashMap, fs::{self, File}, io::Read};
 use super::{glyph::Glyph, glyph_rays::GlyphRays};
 
 pub struct GlyphDataset {
     glyph_dict: HashMap<u8, HashMap<u16, Vec<Glyph>>>,
+    min_height: u8,
+    min_width: u16,
 }
 
 impl GlyphDataset {
     pub fn build_from_dir(input: &str) -> GlyphDataset {
         //let mut glyph_dict : HashMap<(u16, u8), HashMap<String, GlyphRays>> = HashMap::new();
         let mut glyph_dict : HashMap<u8, HashMap<u16, Vec<Glyph>>> = HashMap::new();
+        let mut min_height = std::u8::MAX;
+        let mut min_width = std::u16::MAX;
         for x in fs::read_dir(input).unwrap().into_iter().filter(|x| x.as_ref().unwrap().path().is_dir())
         {
             let dir_name = x.unwrap().file_name().to_str().unwrap().to_owned();
@@ -25,6 +29,8 @@ impl GlyphDataset {
                 if !width_vec.iter().any(|g| g.value == c) {
                     println!("Using {} for {} at {},{}", file_name, dir_name, height, width);
                     let ray = GlyphRays::from_file(&(input.to_owned() + &dir_name + "/" + &file_name));
+                    min_height = cmp::min(min_height, ray.height);
+                    min_width = cmp::min(min_width, ray.width);
                     width_vec.push(Glyph{
                         value: c.clone(),
                         ray,
@@ -35,6 +41,8 @@ impl GlyphDataset {
 
         GlyphDataset{
             glyph_dict,
+            min_height,
+            min_width,
         }
     }
 
@@ -44,6 +52,37 @@ impl GlyphDataset {
             Some(d) => d.get(width),
             None => None
         }
+    }
+
+    pub fn fuzzy_get(&self, max_width:u16, max_height:u8, overlap:&GlyphRays) -> Vec<&Glyph> {
+        let mut results = Vec::new();
+        for height in self.min_height..max_height {
+            match self.glyph_dict.get(&height) {
+                Some(d) =>
+                {
+                    for width in self.min_width..max_width {
+                        let mut min_t2b = std::u8::MAX;
+                        for i in 0..width as usize{
+                            min_t2b = cmp::min(min_t2b, overlap.t2b[i]);
+                        }
+                        let valid_top = overlap.pixels_from_top + (min_t2b as i8);
+                        match d.get(&width) {
+                            Some(vec) => {
+                                for candidate in vec {
+                                    if (candidate.ray.pixels_from_top - valid_top).abs() < 2 {
+                                        results.push(candidate);
+                                    }
+                                }
+                                results.extend(vec);
+                            }
+                            _ => ()
+                        }
+                    }
+                }
+                _ => ()
+            }
+        }
+        results
     }
 }
 

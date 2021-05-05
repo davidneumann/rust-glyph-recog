@@ -11,13 +11,13 @@ use rayon::prelude::*;
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
-    // let input = "/home/david/Downloads/0/";
-    // //for file in fs::read_dir(input)?{
-    // //    _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
-    // //}
-    // //panic!();
-    // let _ = _parse_file(&(input.to_owned() + "396.dat"));
-    // let rays = &GlyphRays::from_file(&(input.to_owned() + "396.dat"));
+    let input = "/home/david/Downloads/0/";
+    // for file in fs::read_dir(input)?{
+    //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
+    // }
+    // panic!();
+    let _ = _parse_file(&(input.to_owned() + "396.dat"));
+    let rays = &GlyphRays::from_file(&(input.to_owned() + "396.dat"));
     // println!("66/0");
     // let _debug = "test";
     // print_rays(rays);
@@ -44,6 +44,12 @@ fn main() -> io::Result<()> {
         .filter(|x| x.as_ref().unwrap().path().is_dir())
         .map(|x| x.unwrap().path())
         .collect();
+
+    let candidates = dataset.fuzzy_get(rays.width, rays.height, &rays);
+    for candidate in candidates {
+        print_rays(&candidate.ray);
+    }
+    panic!();
 
     let start = Instant::now();
     let test:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
@@ -154,7 +160,7 @@ fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max:
 
 fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
     let max_width = cmp::max(r1.width, r2.width) - 1;
-    let max_height = (cmp::max(r1.height, r2.height) - 1) as u16;
+    let max_height = cmp::max(r1.height, r2.height) - 1;
     let _debug = cmp::max(r1.r2l.len(), r2.r2l.len());
 
     //println!("Max width: {}. Max height: {}", max_width, max_height);
@@ -180,16 +186,32 @@ fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
     //Vertical vecs
     let mut vert_delta = 0.0;
     for x in 0..=max_width  {
-        vert_delta += get_vec_delta(&r1.t2b, &r2.t2b, x as usize, max_height, 2)     as f64;
-        vert_delta += get_vec_delta(&r1.b2t, &r2.b2t, x as usize, max_height, 2)     as f64;
-        vert_delta += get_vec_delta(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
-        vert_delta += get_vec_delta(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
+        vert_delta += get_vec_delta_u8(&r1.t2b, &r2.t2b, x as usize, max_height, 2)     as f64;
+        vert_delta += get_vec_delta_u8(&r1.b2t, &r2.b2t, x as usize, max_height, 2)     as f64;
+        vert_delta += get_vec_delta_u8(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
+        vert_delta += get_vec_delta_u8(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
     }
     vert_delta = vert_delta / max_height as f64;
 
     ((vert_delta + horiz_delta) * 100.0) as u32
 }
 
+fn get_vec_delta_u8(l:&Vec<u8>, r:&Vec<u8>, index:usize, max_value:u8, stretch_limit:usize) -> u8 {
+    //let max_value =
+    //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
+    //    else if index < l.len() { l[index] }
+    //    else { r[index] };
+    let left =
+        if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
+    let right =
+        if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
+    if right > left {
+        right - left
+    }
+    else {
+        left - right
+    }
+}
 fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_limit:usize) -> u16 {
     //let max_value =
     //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
@@ -219,7 +241,7 @@ fn print_rays(rays: &GlyphRays) -> () {
     println!("m2b {:?}", rays.m2b);
     println!("width {:?} height {:?}", rays.width, rays.height);
 
-    let height = rays.height as u16;
+    let height = rays.height;
     for y in 0..height {
         for x in 0..rays.width {
             if x < rays.width - 1 &&  rays.l2r[(y as usize)] == x      { print!("X"); }
