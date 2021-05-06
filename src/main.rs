@@ -45,7 +45,8 @@ fn main() -> io::Result<()> {
         .map(|x| x.unwrap().path())
         .collect();
 
-    let candidates = dataset.fuzzy_get(rays.width, rays.height, &rays);
+    let candidates = dataset.fuzzy_get(&rays).unwrap();
+    println!("Found {} candidates", candidates.len());
     for candidate in candidates {
         print_rays(&candidate.ray);
     }
@@ -239,7 +240,7 @@ fn print_rays(rays: &GlyphRays) -> () {
     println!("m2r {:?}", rays.m2r);
     println!("m2t {:?}", rays.m2t);
     println!("m2b {:?}", rays.m2b);
-    println!("width {:?} height {:?}", rays.width, rays.height);
+    println!("width {:?} height {:?} top {}", rays.width, rays.height, rays.pixels_from_top);
 
     let height = rays.height;
     for y in 0..height {

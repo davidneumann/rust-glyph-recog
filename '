@@ -27,7 +27,7 @@ impl GlyphDataset {
                 let height_dict = glyph_dict.entry(height).or_insert(HashMap::new());
                 let width_vec = height_dict.entry(width).or_insert(vec!());
                 if !width_vec.iter().any(|g| g.value == c) {
-                    //println!("Using {} for {} at {},{}", file_name, dir_name, height, width);
+                    println!("Using {} for {} at {},{}", file_name, dir_name, height, width);
                     let ray = GlyphRays::from_file(&(input.to_owned() + &dir_name + "/" + &file_name));
                     min_height = cmp::min(min_height, ray.height);
                     min_width = cmp::min(min_width, ray.width);
@@ -54,42 +54,45 @@ impl GlyphDataset {
         }
     }
 
-    //Scan from left to right getting new valid height
-    //Add all those valid heights up into a new vec
-    pub fn fuzzy_get(&self, overlap:&GlyphRays) -> Option<Vec<&Glyph>> {
+    pub fn fuzzy_get(&self, max_width:u16, max_height:u8, overlap:&GlyphRays) -> Vec<&Glyph> {
         let mut results = Vec::new();
-        for width in self.min_width..=overlap.width {
-            let (valid_top, height) = get_valid_info(overlap, width);
-            let candidates = self.get(&width, &height);
-            match candidates {
-                Some(candidates) => {
-                    for candidate in candidates {
-                        if (candidate.ray.pixels_from_top - valid_top).abs() < 2 {
-                            results.push(candidate);
+        for height in self.min_height..max_height {
+            match self.glyph_dict.get(&height) {
+                Some(d) =>
+                {
+                    for width in self.min_width..max_width {
+                        let mut min_t2b = std::u8::MAX;
+                        for i in 0..width as usize{
+                            min_t2b = cmp::min(min_t2b, overlap.t2b[i]);
+                        }
+                        let valid_top = overlap.pixels_from_top + (min_t2b as i8);
+                        let valid_height = overlap.height - (valid_top as u8) - 1;
+                        match d.get(&width) {
+                            Some(vec) => {
+                                for candidate in vec {
+                                    if (candidate.ray.pixels_from_top - valid_top).abs() < 2 && candidate.ray.height > valid_height {
+                                        results.push(candidate);
+                                    }
+                                }
+                                results.extend(vec);
+                            }
+                            _ => ()
                         }
                     }
                 }
-                None => (),
+                _ => ()
             }
         }
-
-        if results.len() > 0 { Some(results) }
-        else { None }
+        results
     }
 }
 
-//Get new valid top of line using t2b
-//Get new height from t2b and b2t
-fn get_valid_info(overlap: &GlyphRays, width:u16) -> (i8, u8) {
-    let mut min_t2b = std::u8::MAX;
-    let mut min_b2t = std::u8::MAX;
+fn _get_valid_info(overlap: &GlyphRays, width:u16) {
+    let mut min_top = std::u8::MAX;
     for i in 0..width as usize {
-        min_t2b = cmp::min(min_t2b, overlap.t2b[i]);
-        min_b2t = cmp::min(min_b2t, overlap.b2t[i]);
+        min_top = cmp::min(min_top, overlap.t2b[i]);
     }
-    let pixels_from_top = overlap.pixels_from_top + (min_t2b as i8);
-    let height = overlap.height - min_b2t - min_t2b;
-    (pixels_from_top, height)
+    let pixels_from_top = overlap.pixels_from_top + (min_top as i8) - 1;
 }
 
 fn get_size_from_dat(input: &str) -> (u16, u8) {
