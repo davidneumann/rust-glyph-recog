@@ -11,13 +11,13 @@ use rayon::prelude::*;
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
-    let input = "/home/david/Downloads/0/";
+    let input = "/home/david/Downloads/dats/108/";
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
     // }
     // panic!();
-    let _ = _parse_file(&(input.to_owned() + "396.dat"));
-    let rays = &GlyphRays::from_file(&(input.to_owned() + "396.dat"));
+    let _ = _parse_file(&(input.to_owned() + "1.dat"));
+    let rays = &GlyphRays::from_file(&(input.to_owned() + "1.dat"));
     // println!("66/0");
     // let _debug = "test";
     // print_rays(rays);
@@ -45,12 +45,11 @@ fn main() -> io::Result<()> {
         .map(|x| x.unwrap().path())
         .collect();
 
-    let candidates = dataset.fuzzy_get(&rays).unwrap();
-    println!("Found {} candidates", candidates.len());
-    for candidate in candidates {
-        print_rays(&candidate.ray);
-    }
-    panic!();
+    // let candidates = dataset.fuzzy_get(&rays).unwrap();
+    // println!("Found {} candidates", candidates.len());
+    // for candidate in candidates {
+    //     print_rays(&candidate.ray);
+    // }
 
     let start = Instant::now();
     let test:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
