@@ -16,14 +16,15 @@ fn main() -> io::Result<()> {
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
     // }
     // panic!();
-    let _ = _parse_file(&(input.to_owned() + "1.dat"));
-    let rays = &GlyphRays::from_file(&(input.to_owned() + "1.dat"));
     // println!("66/0");
     // let _debug = "test";
-    let debug = rays.get_sub_glyph(5, rays.width - 5);
-    print_rays(rays);
-    print_rays(&debug);
-    panic!();
+
+    // let _ = _parse_file(&(input.to_owned() + "1.dat"));
+    // let rays = &GlyphRays::from_file(&(input.to_owned() + "1.dat"));
+    // let debug = rays.get_sub_glyph(5, rays.width - 5);
+    // print_rays(rays);
+    // print_rays(&debug);
+    // panic!();
 
 
     // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));

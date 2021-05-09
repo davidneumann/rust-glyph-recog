@@ -36,7 +36,7 @@ impl GlyphRays {
         let mut buffer = [0; 100];
         let mut count = 0;
         let len = (width * (height as u16)) as usize;
-        let mut input = vec![vec![false; width as usize]; height as usize];
+        let mut input = vec![vec![false; height as usize]; width as usize];
         loop {
             let read = fin.read(&mut buffer).unwrap();
             if read == 0 {
@@ -47,7 +47,7 @@ impl GlyphRays {
                 let packed_bytes = buffer[buffer_i];
                 for i in 0..8{
                     let pixel = (packed_bytes & (1 << 7 - i)) != 0;
-                    input[count / width as usize][count % width as usize] = pixel;
+                    input[count % width as usize][count / width as usize] = pixel;
                     //splits.push(pixel);
                     count += 1;
                     if count >= len { break; }
@@ -77,7 +77,7 @@ fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<Vec<bool>>
 
     for y in 0..height as usize {
         for x in 0..width as usize {
-            let pixel = ray.raw[y][x];
+            let pixel = ray.raw[x][y];
             let x = x as u16;
             let y = y as u8;
             if pixel {
@@ -107,12 +107,12 @@ impl GlyphRays {
         let height = self.height - min_t2b - min_b2t;
         let pixels_from_top = self.pixels_from_top + min_t2b as i8;
 
-        let mut input = vec![vec![false; width as usize]; height as usize];
+        let mut input = vec![vec![false; height as usize]; width as usize];
         let start_y = min_t2b as usize;
         let start_x = start_x as usize;
         for y in 0..height as usize {
             for x in 0..width as usize {
-                input[y][x] = self.raw[start_y + y][start_x + x];
+                input[x][y] = self.raw[start_x + x][start_y + y];
             }
         }
 
