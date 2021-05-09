@@ -96,26 +96,36 @@ fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<Vec<bool>>
 }
 
 impl GlyphRays {
-    pub fn get_sub_glyph(&self, start_x:u16, width:u16) -> GlyphRays {
+    pub fn get_sub_glyph(&self, mut start_x:u16, mut width:u16) -> Option<GlyphRays> {
+        let end_x = start_x + width;
+        //Trim any leftmost columns that are empty
+        for i in start_x..start_x + width {
+            if self.t2b[i as usize] >= self.height {
+                start_x = (i + 1) as u16;
+            }
+        }
+
         let mut min_t2b = std::u8::MAX;
         let mut min_b2t = std::u8::MAX;
-        for i in start_x..start_x + width {
+        for i in start_x..end_x {
             let i = i as usize;
             min_t2b = cmp::min(min_t2b, self.t2b[i]);
             min_b2t = cmp::min(min_b2t, self.b2t[i]);
         }
+        if min_t2b >= self.height || min_b2t >= self.height { return None; }
         let height = self.height - min_t2b - min_b2t;
         let pixels_from_top = self.pixels_from_top + min_t2b as i8;
 
         let mut input = vec![vec![false; height as usize]; width as usize];
         let start_y = min_t2b as usize;
         let start_x = start_x as usize;
+        width = end_x - start_x as u16;
         for y in 0..height as usize {
             for x in 0..width as usize {
                 input[x][y] = self.raw[start_x + x][start_y + y];
             }
         }
 
-        glyph_with_raw(width, height, pixels_from_top, input)
+        Some(glyph_with_raw(width, height, pixels_from_top, input))
     }
 }

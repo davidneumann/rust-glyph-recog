@@ -8,10 +8,12 @@ use std::collections::HashMap;
 use std::time::Instant;
 use rayon::prelude::*;
 
+use crate::glyph::Glyph;
+
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
-    let input = "/home/david/Downloads/dats/77/";
+    let input = "/home/david/Downloads/0/";
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
     // }
@@ -19,8 +21,8 @@ fn main() -> io::Result<()> {
     // println!("66/0");
     // let _debug = "test";
 
-    // let _ = _parse_file(&(input.to_owned() + "1.dat"));
-    // let rays = &GlyphRays::from_file(&(input.to_owned() + "1.dat"));
+    let _ = _parse_file(&(input.to_owned() + "396.dat"));
+    let rays = GlyphRays::from_file(&(input.to_owned() + "396.dat"));
     // let debug = rays.get_sub_glyph(5, rays.width - 5);
     // print_rays(rays);
     // print_rays(&debug);
@@ -48,14 +50,43 @@ fn main() -> io::Result<()> {
         .map(|x| x.unwrap().path())
         .collect();
 
-    // let candidates = dataset.fuzzy_get(&rays).unwrap();
-    // println!("Found {} candidates", candidates.len());
-    // for candidate in candidates {
-    //     print_rays(&candidate.ray);
-    // }
+    let mut overlap = rays;
+    while overlap.width > dataset.min_width {
+        let candidates = dataset.fuzzy_get(&overlap);
+        if candidates.is_none() { break; }
+        let candidates = candidates.unwrap();
+        println!("Found {} candidates", candidates.len());
+        let mut best_candidate:Option<(u32, &Glyph)> = None;
+        for candidate in candidates {
+            let sub = overlap.get_sub_glyph(0, candidate.ray.width);
+            if sub.is_none() { continue; }
+            let sub = sub.unwrap();
+            let score = get_ray_delta(&sub, &candidate.ray);
+            let (best_score, _) = best_candidate.get_or_insert((score, candidate));
+            if score < *best_score {
+                best_candidate = Some((score, candidate));
+            }
+            //print_rays(&candidate.ray);
+        }
+        match best_candidate {
+            Some((score, glyph)) => {
+                println!("Best match was {} with a score of {}", glyph.value, score);
+                let debug = overlap.get_sub_glyph(glyph.ray.width, overlap.width - glyph.ray.width);
+                match debug {
+                    Some(debug) => {
+                        //print_rays(&debug);
+                        overlap = debug;
+                    },
+                    _ => ()
+                }
+            },
+            _ => println!("No matches found for overlap"),
+        }
+    }
+    panic!();
 
     let start = Instant::now();
-    let test:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
+    let match_results:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
         .map(|dir| -> Vec<(bool, (u16, u8, String), i32)> {
             // //for dir in dirs {
             let dir_name = dir.file_name().unwrap().to_str().unwrap().to_owned();
@@ -95,7 +126,7 @@ fn main() -> io::Result<()> {
     let mut total = 0;
     let mut correct = 0;
     let mut max_error: HashMap<(u16, u8, String), i32> = HashMap::new();
-    for (item, (width, height, c), score) in test {
+    for (item, (width, height, c), score) in match_results {
         if item == true {
             correct += 1;
             let existing = *max_error.entry((width, height, c.clone())).or_insert(0);
@@ -121,189 +152,189 @@ fn main() -> io::Result<()> {
         .par_bridge()
         .map(|x| x.unwrap())
         .for_each(|file| {
-    //for file in files {
-        let file_path = file.path();
-        let file_name = file_path.file_name().unwrap().to_str().unwrap();
-        let ray = &GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
-        match dataset.get(&ray.width, &ray.height) {
-            Some(glyphs) => {
-                let best_match = glyphs.into_iter()
-                    .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
-                    .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
-                match best_match {
-                    Some(best_match) => {
-                        let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, best_match.value.clone())).unwrap() as f64 * 1.5) as u32);
-                        let error = &get_ray_delta(ray, &best_match.ray);
-                        if error <= expected_error {
-                            println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
-                                     expected_error);
-                            *found_match.lock().unwrap() += 1;
-                        }
-                    },
-                    _ => (),
-                }
-            },
-            _ => (),
+            //for file in files {
+            let file_path = file.path();
+            let file_name = file_path.file_name().unwrap().to_str().unwrap();
+            let ray = &GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
+            match dataset.get(&ray.width, &ray.height) {
+                Some(glyphs) => {
+                    let best_match = glyphs.into_iter()
+                        .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                    match best_match {
+                        Some(best_match) => {
+                            let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, best_match.value.clone())).unwrap() as f64 * 1.5) as u32);
+                            let error = &get_ray_delta(ray, &best_match.ray);
+                            if error <= expected_error {
+                                println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
+                                         expected_error);
+                                *found_match.lock().unwrap() += 1;
+                            }
+                        },
+                        _ => (),
+                    }
+                },
+                _ => (),
+            }
+            *total.lock().unwrap() += 1;
+        });
+        println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), found_match.lock().unwrap(), start.elapsed());
+
+
+        Ok(())
         }
-        *total.lock().unwrap() += 1;
-    });
-    println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), found_match.lock().unwrap(), start.elapsed());
 
-
-    Ok(())
-}
-
-fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
-    let mut first_clone= first.clone();
-    let mut second_clone = second.clone();
-    if first_clone.len() < second_clone.len() { first_clone.push(first[first.len() - 1]); }
-    else if second_clone.len() < first_clone.len() { second_clone.push(second[second.len() - 1]); }
-    println!("{}\n{:?}\n{:?}", label, first_clone, second_clone);
-}
-
-fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
-    let max_width = cmp::max(r1.width, r2.width) - 1;
-    let max_height = cmp::max(r1.height, r2.height) - 1;
-    let _debug = cmp::max(r1.r2l.len(), r2.r2l.len());
-
-    //println!("Max width: {}. Max height: {}", max_width, max_height);
-    //dispaly_vec_with_max("l2r", &r1.l2r, &r2.l2r, max_width);
-    //dispaly_vec_with_max("r2l", &r1.r2l, &r2.r2l, max_width);
-    //dispaly_vec_with_max("t2b", &r1.t2b, &r2.t2b, max_height);
-    //dispaly_vec_with_max("b2t", &r1.b2t, &r2.b2t, max_height);
-    //dispaly_vec_with_max("m2l", &r1.m2l, &r2.m2l, max_width);
-    //dispaly_vec_with_max("m2r", &r1.m2r, &r2.m2r, max_width);
-    //dispaly_vec_with_max("m2t", &r1.m2t, &r2.m2t, max_height);
-    //dispaly_vec_with_max("m2b", &r1.m2b, &r2.m2b, max_height);
-
-    //Horizontal vecs
-    let mut horiz_delta = 0.0;
-    for y in 0..=max_height {
-        horiz_delta += get_vec_delta(&r1.l2r, &r2.l2r, y as usize, max_width, 0)     as f64;
-        horiz_delta += get_vec_delta(&r1.r2l, &r2.r2l, y as usize, max_width, 0)     as f64;
-        horiz_delta += get_vec_delta(&r1.m2r, &r2.m2r, y as usize, max_width / 2, 0) as f64;
-        horiz_delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, max_width / 2, 0) as f64;
+    fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
+        let mut first_clone= first.clone();
+        let mut second_clone = second.clone();
+        if first_clone.len() < second_clone.len() { first_clone.push(first[first.len() - 1]); }
+        else if second_clone.len() < first_clone.len() { second_clone.push(second[second.len() - 1]); }
+        println!("{}\n{:?}\n{:?}", label, first_clone, second_clone);
     }
-    horiz_delta = horiz_delta / max_width as f64;
 
-    //Vertical vecs
-    let mut vert_delta = 0.0;
-    for x in 0..=max_width  {
-        vert_delta += get_vec_delta_u8(&r1.t2b, &r2.t2b, x as usize, max_height, 2)     as f64;
-        vert_delta += get_vec_delta_u8(&r1.b2t, &r2.b2t, x as usize, max_height, 2)     as f64;
-        vert_delta += get_vec_delta_u8(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
-        vert_delta += get_vec_delta_u8(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
-    }
-    vert_delta = vert_delta / max_height as f64;
+    fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
+        let max_width = cmp::max(r1.width, r2.width) - 1;
+        let max_height = cmp::max(r1.height, r2.height) - 1;
+        let _debug = cmp::max(r1.r2l.len(), r2.r2l.len());
 
-    ((vert_delta + horiz_delta) * 100.0) as u32
-}
+        //println!("Max width: {}. Max height: {}", max_width, max_height);
+        //dispaly_vec_with_max("l2r", &r1.l2r, &r2.l2r, max_width);
+        //dispaly_vec_with_max("r2l", &r1.r2l, &r2.r2l, max_width);
+        //dispaly_vec_with_max("t2b", &r1.t2b, &r2.t2b, max_height);
+        //dispaly_vec_with_max("b2t", &r1.b2t, &r2.b2t, max_height);
+        //dispaly_vec_with_max("m2l", &r1.m2l, &r2.m2l, max_width);
+        //dispaly_vec_with_max("m2r", &r1.m2r, &r2.m2r, max_width);
+        //dispaly_vec_with_max("m2t", &r1.m2t, &r2.m2t, max_height);
+        //dispaly_vec_with_max("m2b", &r1.m2b, &r2.m2b, max_height);
 
-fn get_vec_delta_u8(l:&Vec<u8>, r:&Vec<u8>, index:usize, max_value:u8, stretch_limit:usize) -> u8 {
-    //let max_value =
-    //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
-    //    else if index < l.len() { l[index] }
-    //    else { r[index] };
-    let left =
-        if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
-    let right =
-        if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
-    if right > left {
-        right - left
-    }
-    else {
-        left - right
-    }
-}
-fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_limit:usize) -> u16 {
-    //let max_value =
-    //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
-    //    else if index < l.len() { l[index] }
-    //    else { r[index] };
-    let left =
-        if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
-    let right =
-        if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
-    if right > left {
-        right - left
-    }
-    else {
-        left - right
-    }
-}
-
-fn print_rays(rays: &GlyphRays) -> () {
-    println!();
-    println!("l2r {:?}", rays.l2r);
-    println!("r2l {:?}", rays.r2l);
-    println!("t2b {:?}", rays.t2b);
-    println!("b2t {:?}", rays.b2t);
-    println!("m2l {:?}", rays.m2l);
-    println!("m2r {:?}", rays.m2r);
-    println!("m2t {:?}", rays.m2t);
-    println!("m2b {:?}", rays.m2b);
-    println!("width {:?} height {:?} top {}", rays.width, rays.height, rays.pixels_from_top);
-
-    let height = rays.height;
-    for y in 0..height {
-        for x in 0..rays.width {
-            if x < rays.width - 1 &&  rays.l2r[(y as usize)] == x      { print!("X"); }
-            else if x > 0 && rays.r2l[y as usize] < rays.width && rays.width - 1 - rays.r2l[(y as usize)] == x { print!("X"); }
-            else if y < height - 1 && rays.t2b[(x as usize)] == y { print!("X"); }
-            else if y > 0 && rays.b2t[(x as usize)] < height && height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
-            else if x > 0 && rays.width / 2 - rays.m2l[(y as usize)] == x { print!("X"); }
-            else if x > 0 && rays.m2r[(y as usize)] + rays.width / 2 == x { print!("X"); }
-            else if y > 0 && height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
-            else if y < height - 1 && rays.m2b[(x as usize)] + height / 2 == y { print!("X"); }
-            else { print!(" "); }
+        //Horizontal vecs
+        let mut horiz_delta = 0.0;
+        for y in 0..=max_height {
+            horiz_delta += get_vec_delta(&r1.l2r, &r2.l2r, y as usize, max_width, 0)     as f64;
+            horiz_delta += get_vec_delta(&r1.r2l, &r2.r2l, y as usize, max_width, 0)     as f64;
+            horiz_delta += get_vec_delta(&r1.m2r, &r2.m2r, y as usize, max_width / 2, 0) as f64;
+            horiz_delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, max_width / 2, 0) as f64;
         }
+        horiz_delta = horiz_delta / max_width as f64;
+
+        //Vertical vecs
+        let mut vert_delta = 0.0;
+        for x in 0..=max_width  {
+            vert_delta += get_vec_delta_u8(&r1.t2b, &r2.t2b, x as usize, max_height, 2)     as f64;
+            vert_delta += get_vec_delta_u8(&r1.b2t, &r2.b2t, x as usize, max_height, 2)     as f64;
+            vert_delta += get_vec_delta_u8(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
+            vert_delta += get_vec_delta_u8(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
+        }
+        vert_delta = vert_delta / max_height as f64;
+
+        ((vert_delta + horiz_delta) * 100.0) as u32
+    }
+
+    fn get_vec_delta_u8(l:&Vec<u8>, r:&Vec<u8>, index:usize, max_value:u8, stretch_limit:usize) -> u8 {
+        //let max_value =
+        //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
+        //    else if index < l.len() { l[index] }
+        //    else { r[index] };
+        let left =
+            if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
+        let right =
+            if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
+        if right > left {
+            right - left
+        }
+        else {
+            left - right
+        }
+    }
+    fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_limit:usize) -> u16 {
+        //let max_value =
+        //    if index < l.len() && index < r.len() { cmp::max(l[index], r[index]) }
+        //    else if index < l.len() { l[index] }
+        //    else { r[index] };
+        let left =
+            if index < l.len() + stretch_limit { l[cmp::min(index, l.len() - 1)] } else { max_value };
+        let right =
+            if index < r.len() + stretch_limit { r[cmp::min(index, r.len() - 1)] } else { max_value };
+        if right > left {
+            right - left
+        }
+        else {
+            left - right
+        }
+    }
+
+    fn print_rays(rays: &GlyphRays) -> () {
         println!();
-    }
-}
+        println!("l2r {:?}", rays.l2r);
+        println!("r2l {:?}", rays.r2l);
+        println!("t2b {:?}", rays.t2b);
+        println!("b2t {:?}", rays.b2t);
+        println!("m2l {:?}", rays.m2l);
+        println!("m2r {:?}", rays.m2r);
+        println!("m2t {:?}", rays.m2t);
+        println!("m2b {:?}", rays.m2b);
+        println!("width {:?} height {:?} top {}", rays.width, rays.height, rays.pixels_from_top);
 
-fn _get_width(input: &str) -> i32{
-    println!("Trying to open {}", input);
-    let mut fin = File::open(input).unwrap();
-
-    let mut buffer = [0; 4];
-    fin.read(&mut buffer).unwrap();
-    return i32::from_le_bytes(buffer);
-}
-
-fn _parse_file(input: &str) -> io::Result<()> {
-    let mut fin = File::open(input)?;
-
-    let mut buffer = [0; 2];
-    fin.read(&mut buffer)?;
-    let width = u16::from_le_bytes(buffer);
-    let mut buffer = [0; 1];
-    fin.read(&mut buffer)?;
-    let height = u8::from_le_bytes(buffer);
-    fin.read(&mut buffer)?;
-    let _pixels_from_top = u8::from_le_bytes(buffer);
-    let mut count = 0;
-    println!("{}: {},{} {}", &input, width, height, _pixels_from_top);
-    let mut buffer = [0; 1];
-    loop {
-        let read = fin.read(&mut buffer)?;
-        if read == 0 {
-            break;
-        }
-        for i in 0..8{
-            let pixel = (buffer[0] & (1 << 7 - i)) != 0;
-            if !pixel {
-                print!(" ");
+        let height = rays.height;
+        for y in 0..height {
+            for x in 0..rays.width {
+                if x < rays.width - 1 &&  rays.l2r[(y as usize)] == x      { print!("X"); }
+                else if x > 0 && rays.r2l[y as usize] < rays.width && rays.width - 1 - rays.r2l[(y as usize)] == x { print!("X"); }
+                else if y < height - 1 && rays.t2b[(x as usize)] == y { print!("X"); }
+                else if y > 0 && rays.b2t[(x as usize)] < height && height - 1 - rays.b2t[(x as usize)] == y { print!("X"); }
+                else if x > 0 && rays.width / 2 - rays.m2l[(y as usize)] == x { print!("X"); }
+                else if x > 0 && rays.m2r[(y as usize)] + rays.width / 2 == x { print!("X"); }
+                else if y > 0 && height / 2 - rays.m2t[(x as usize)] == y { print!("X"); }
+                else if y < height - 1 && rays.m2b[(x as usize)] + height / 2 == y { print!("X"); }
+                else { print!(" "); }
             }
-            else {
-                let c = std::char::from_u32(65).unwrap();
-                print!("{}", c);
-            }
-            count += 1;
-            if count % width == 0 {
-                println!("");
-            }
+            println!();
         }
     }
-    println!("Count: {}", count);
-    Ok(())
-}
+
+    fn _get_width(input: &str) -> i32{
+        println!("Trying to open {}", input);
+        let mut fin = File::open(input).unwrap();
+
+        let mut buffer = [0; 4];
+        fin.read(&mut buffer).unwrap();
+        return i32::from_le_bytes(buffer);
+    }
+
+    fn _parse_file(input: &str) -> io::Result<()> {
+        let mut fin = File::open(input)?;
+
+        let mut buffer = [0; 2];
+        fin.read(&mut buffer)?;
+        let width = u16::from_le_bytes(buffer);
+        let mut buffer = [0; 1];
+        fin.read(&mut buffer)?;
+        let height = u8::from_le_bytes(buffer);
+        fin.read(&mut buffer)?;
+        let _pixels_from_top = u8::from_le_bytes(buffer);
+        let mut count = 0;
+        println!("{}: {},{} {}", &input, width, height, _pixels_from_top);
+        let mut buffer = [0; 1];
+        loop {
+            let read = fin.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            for i in 0..8{
+                let pixel = (buffer[0] & (1 << 7 - i)) != 0;
+                if !pixel {
+                    print!(" ");
+                }
+                else {
+                    let c = std::char::from_u32(65).unwrap();
+                    print!("{}", c);
+                }
+                count += 1;
+                if count % width == 0 {
+                    println!("");
+                }
+            }
+        }
+        println!("Count: {}", count);
+        Ok(())
+    }

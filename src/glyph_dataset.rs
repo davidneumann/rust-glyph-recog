@@ -4,7 +4,7 @@ use super::{glyph::Glyph, glyph_rays::GlyphRays};
 pub struct GlyphDataset {
     glyph_dict: HashMap<u8, HashMap<u16, Vec<Glyph>>>,
     min_height: u8,
-    min_width: u16,
+    pub min_width: u16,
 }
 
 impl GlyphDataset {
