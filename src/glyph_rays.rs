@@ -15,7 +15,7 @@ pub struct GlyphRays{
     pub m2t: Vec<u8>,
     pub m2r: Vec<u16>,
     pub m2b: Vec<u8>,
-    pub raw: Vec<bool>,
+    pub raw: Vec<Vec<bool>>,
 }
 
 impl GlyphRays {
@@ -34,32 +34,32 @@ impl GlyphRays {
         // println!("{},{}", width, height);
 
         let mut buffer = [0; 100];
-        let mut input:Vec<bool> = Vec::new();
         let mut count = 0;
-        let len = width * (height as u16);
+        let len = (width * (height as u16)) as usize;
+        let mut input = vec![vec![false; width as usize]; height as usize];
         loop {
             let read = fin.read(&mut buffer).unwrap();
             if read == 0 {
                 break;
             }
 
-            input.extend(buffer.iter().take(read).clone().flat_map(|item| {
-                let mut splits = Vec::new();
+            for buffer_i in 0..read {
+                let packed_bytes = buffer[buffer_i];
                 for i in 0..8{
-                    let pixel = (item & (1 << 7 - i)) != 0;
-                    splits.push(pixel);
+                    let pixel = (packed_bytes & (1 << 7 - i)) != 0;
+                    input[count / width as usize][count % width as usize] = pixel;
+                    //splits.push(pixel);
                     count += 1;
                     if count >= len { break; }
                 }
-                splits.into_iter()
-            }));
+            }
         }
 
         glyph_with_raw(width, height, pixels_from_top as i8, input)
     }
 }
 
-fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<bool>) -> GlyphRays {
+fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<Vec<bool>>) -> GlyphRays {
     let mut ray = GlyphRays {
         l2r: vec![width; height as usize],
         t2b: vec![height; width as usize],
@@ -75,19 +75,21 @@ fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<bool>) -> 
         raw: input,
     };
 
-    for i in 0..ray.raw.len() {
-        let x = (i % (width as usize)) as u16;
-        let y = (i / (width as usize)) as u8;
-        let pixel = ray.raw[i as usize];
-        if pixel {
-            ray.l2r[(y as usize)] = cmp::min(x, ray.l2r[(y as usize)]);
-            ray.r2l[(y as usize)] = cmp::min(width - x - 1, ray.r2l[(y as usize)]);
-            ray.t2b[(x as usize)] = cmp::min(y, ray.t2b[(x as usize)]);
-            ray.b2t[(x as usize)] = cmp::min(height - y - 1, ray.b2t[(x as usize)]);
-            if x <  width  / 2 { ray.m2l[(y as usize)] = cmp::min(width / 2 - x, ray.m2l[(y as usize)]); }
-            if x >=  width  / 2 { ray.m2r[(y as usize)] = cmp::min(x - width / 2, ray.m2r[(y as usize)]); }
-            if y <  height / 2 { ray.m2t[(x as usize)] = cmp::min(height / 2 - y, ray.m2t[(x as usize)]); }
-            if y >=  height / 2 { ray.m2b[(x as usize)] = cmp::min(y - height / 2, ray.m2b[(x as usize)]); }
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let pixel = ray.raw[y][x];
+            let x = x as u16;
+            let y = y as u8;
+            if pixel {
+                ray.l2r[(y as usize)] = cmp::min(x, ray.l2r[(y as usize)]);
+                ray.r2l[(y as usize)] = cmp::min(width - x - 1, ray.r2l[(y as usize)]);
+                ray.t2b[(x as usize)] = cmp::min(y, ray.t2b[(x as usize)]);
+                ray.b2t[(x as usize)] = cmp::min(height - y - 1, ray.b2t[(x as usize)]);
+                if x <  width  / 2 { ray.m2l[(y as usize)] = cmp::min(width / 2 - x, ray.m2l[(y as usize)]); }
+                if x >=  width  / 2 { ray.m2r[(y as usize)] = cmp::min(x - width / 2, ray.m2r[(y as usize)]); }
+                if y <  height / 2 { ray.m2t[(x as usize)] = cmp::min(height / 2 - y, ray.m2t[(x as usize)]); }
+                if y >=  height / 2 { ray.m2b[(x as usize)] = cmp::min(y - height / 2, ray.m2b[(x as usize)]); }
+            }
         }
     }
     ray
