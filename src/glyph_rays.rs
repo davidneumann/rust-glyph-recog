@@ -95,30 +95,27 @@ fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<Vec<bool>>
     ray
 }
 
-// impl GlyphRays {
-//     pub fn GetSubGlyph(&self, start_x:u16, width:u16) -> GlyphRays {
-//         let mut min_t2b = 0u8;
-//         let mut min_b2t = 0u8;
-//         for i in start_x..start_x + width {
-//             let i = i as usize;
-//             min_t2b = cmp::min(min_t2b, self.t2b[i]);
-//             min_b2t = cmp::min(min_b2t, self.b2t[i]);
-//         }
-//         let height = self.height - min_t2b - min_b2t;
-//         let pixels_from_top = self.pixels_from_top + min_t2b as i8;
-//         GlyphRays{
-//             width,
-//             height,
-//             pixels_from_top,
-//             l2r: (),
-//             t2b: (),
-//             r2l: (),
-//             b2t: (),
-//             m2l: (),
-//             m2t: (),
-//             m2r: (),
-//             m2b: (),
-//             raw: (),
-//         }
-//     }
-// }
+impl GlyphRays {
+    pub fn get_sub_glyph(&self, start_x:u16, width:u16) -> GlyphRays {
+        let mut min_t2b = std::u8::MAX;
+        let mut min_b2t = std::u8::MAX;
+        for i in start_x..start_x + width {
+            let i = i as usize;
+            min_t2b = cmp::min(min_t2b, self.t2b[i]);
+            min_b2t = cmp::min(min_b2t, self.b2t[i]);
+        }
+        let height = self.height - min_t2b - min_b2t;
+        let pixels_from_top = self.pixels_from_top + min_t2b as i8;
+
+        let mut input = vec![vec![false; width as usize]; height as usize];
+        let start_y = min_t2b as usize;
+        let start_x = start_x as usize;
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                input[y][x] = self.raw[start_y + y][start_x + x];
+            }
+        }
+
+        glyph_with_raw(width, height, pixels_from_top, input)
+    }
+}

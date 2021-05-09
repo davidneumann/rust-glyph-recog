@@ -11,7 +11,7 @@ use rayon::prelude::*;
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
-    let input = "/home/david/Downloads/dats/108/";
+    let input = "/home/david/Downloads/dats/77/";
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
     // }
@@ -20,8 +20,10 @@ fn main() -> io::Result<()> {
     let rays = &GlyphRays::from_file(&(input.to_owned() + "1.dat"));
     // println!("66/0");
     // let _debug = "test";
-    // print_rays(rays);
-    // panic!();
+    let debug = rays.get_sub_glyph(5, rays.width - 5);
+    print_rays(rays);
+    print_rays(&debug);
+    panic!();
 
 
     // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
