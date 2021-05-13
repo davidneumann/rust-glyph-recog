@@ -50,41 +50,6 @@ fn main() -> io::Result<()> {
         .map(|x| x.unwrap().path())
         .collect();
 
-    let mut overlap = rays;
-    while overlap.width > dataset.min_width {
-        let candidates = dataset.fuzzy_get(&overlap);
-        if candidates.is_none() { break; }
-        let candidates = candidates.unwrap();
-        println!("Found {} candidates", candidates.len());
-        let mut best_candidate:Option<(u32, &Glyph)> = None;
-        for candidate in candidates {
-            let sub = overlap.get_sub_glyph(0, candidate.ray.width);
-            if sub.is_none() { continue; }
-            let sub = sub.unwrap();
-            let score = get_ray_delta(&sub, &candidate.ray);
-            let (best_score, _) = best_candidate.get_or_insert((score, candidate));
-            if score < *best_score {
-                best_candidate = Some((score, candidate));
-            }
-            //print_rays(&candidate.ray);
-        }
-        match best_candidate {
-            Some((score, glyph)) => {
-                println!("Best match was {} with a score of {}", glyph.value, score);
-                let debug = overlap.get_sub_glyph(glyph.ray.width, overlap.width - glyph.ray.width);
-                match debug {
-                    Some(debug) => {
-                        //print_rays(&debug);
-                        overlap = debug;
-                    },
-                    _ => ()
-                }
-            },
-            _ => println!("No matches found for overlap"),
-        }
-    }
-    panic!();
-
     let start = Instant::now();
     let match_results:Vec<(bool, (u16, u8, String), i32)> = dirs.par_iter()
         .map(|dir| -> Vec<(bool, (u16, u8, String), i32)> {
@@ -149,26 +114,29 @@ fn main() -> io::Result<()> {
     let found_match = Arc::new(Mutex::new(0));
     fs::read_dir(overlap_dir)?
         .into_iter()
-        .par_bridge()
+        //.par_bridge()
         .map(|x| x.unwrap())
         .for_each(|file| {
             //for file in files {
             let file_path = file.path();
             let file_name = file_path.file_name().unwrap().to_str().unwrap();
-            let ray = &GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
+            let ray = GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
             match dataset.get(&ray.width, &ray.height) {
                 Some(glyphs) => {
                     let best_match = glyphs.into_iter()
                         .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
-                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                        .min_by_key(|glyph| get_ray_delta(&ray, &glyph.ray));
                     match best_match {
                         Some(best_match) => {
                             let expected_error = &((*max_error.get(&(best_match.ray.width, best_match.ray.height, best_match.value.clone())).unwrap() as f64 * 1.5) as u32);
-                            let error = &get_ray_delta(ray, &best_match.ray);
+                            let error = &get_ray_delta(&ray, &best_match.ray);
                             if error <= expected_error {
                                 println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
                                          expected_error);
                                 *found_match.lock().unwrap() += 1;
+                            }
+                            else {
+                                resolve_overlap(ray, &dataset);
                             }
                         },
                         _ => (),
@@ -178,6 +146,7 @@ fn main() -> io::Result<()> {
             }
             *total.lock().unwrap() += 1;
         });
+
         println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), found_match.lock().unwrap(), start.elapsed());
 
 
@@ -337,4 +306,42 @@ fn main() -> io::Result<()> {
         }
         println!("Count: {}", count);
         Ok(())
+    }
+
+    fn resolve_overlap(mut overlap: GlyphRays, dataset:&GlyphDataset) {
+        println!("Trying to resolve overlap");
+        print_rays(&overlap);
+        while overlap.width > dataset.min_width {
+            let candidates = dataset.fuzzy_get(&overlap);
+            if candidates.is_none() { break; }
+            let candidates = candidates.unwrap();
+            let mut best_candidate:Option<(u32, &Glyph)> = None;
+            for candidate in candidates {
+                let sub = overlap.get_sub_glyph(0, candidate.ray.width);
+                if sub.is_none() { continue; }
+                let sub = sub.unwrap();
+                let score = get_ray_delta(&sub, &candidate.ray);
+                let (best_score, _) = best_candidate.get_or_insert((score, candidate));
+                if score < *best_score {
+                    best_candidate = Some((score, candidate));
+                }
+                //print_rays(&candidate.ray);
+            }
+            match best_candidate {
+                Some((score, glyph)) => {
+                    println!("Best match was {} with a score of {}", glyph.value, score);
+                    let debug = overlap.get_sub_glyph(glyph.ray.width, overlap.width - glyph.ray.width);
+                    match debug {
+                        Some(debug) => {
+                            println!("Remaining after chop");
+                            print_rays(&debug);
+                            overlap = debug;
+                        },
+                        _ => break,
+                    }
+                },
+                _ => println!("No matches found for overlap"),
+            }
+        }
+        println!("");
     }
