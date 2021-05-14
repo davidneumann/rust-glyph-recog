@@ -99,9 +99,9 @@ impl GlyphRays {
     pub fn get_sub_glyph(&self, mut start_x:u16, mut width:u16) -> Option<GlyphRays> {
         let end_x = start_x + width;
         //Trim any leftmost columns that are empty
-        for i in start_x..start_x + width {
-            if self.t2b[i as usize] >= self.height {
-                start_x = (i + 1) as u16;
+        for i in (start_x..start_x + width).rev() {
+            if self.t2b[i as usize] < self.height {
+                start_x = i as u16;
             }
         }
 
