@@ -19,6 +19,11 @@ fn main() -> io::Result<()> {
 
 
     let input = "/home/david/Downloads/0/";
+    let _ = _parse_file(&(input.to_owned() + "3848.dat"));
+    let rays = GlyphRays::from_file(&(input.to_owned() + "3848.dat"));
+    resolve_overlap(rays, &dataset);
+    panic!();
+
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
     // }
@@ -26,13 +31,9 @@ fn main() -> io::Result<()> {
     // println!("66/0");
     // let _debug = "test";
 
-    let _ = _parse_file(&(input.to_owned() + "1514.dat"));
-    let rays = GlyphRays::from_file(&(input.to_owned() + "1514.dat"));
-    resolve_overlap(rays, &dataset);
     // let debug = rays.get_sub_glyph(5, rays.width - 5);
     // print_rays(rays);
     // print_rays(&debug);
-    panic!();
 
 
     // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
@@ -334,7 +335,9 @@ fn main() -> io::Result<()> {
             match best_candidate {
                 Some((score, glyph)) => {
                     println!("Best match was {} with a score of {}", glyph.value, score);
-                    let debug = overlap.get_sub_glyph(glyph.ray.width, overlap.width - glyph.ray.width);
+                    let new_width = overlap.width - glyph.ray.width;
+                    if new_width < dataset.min_width { break; }
+                    let debug = overlap.get_sub_glyph(glyph.ray.width, new_width);
                     match debug {
                         Some(debug) => {
                             println!("Remaining after chop");
