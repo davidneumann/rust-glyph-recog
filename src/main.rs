@@ -13,6 +13,11 @@ use crate::glyph::Glyph;
 // =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
+    let input2 = "/home/david/Downloads/dats/";
+    // Update this to use glyph_dataset
+    let dataset = GlyphDataset::build_from_dir(&input2);
+
+
     let input = "/home/david/Downloads/0/";
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
@@ -21,12 +26,13 @@ fn main() -> io::Result<()> {
     // println!("66/0");
     // let _debug = "test";
 
-    let _ = _parse_file(&(input.to_owned() + "396.dat"));
-    let rays = GlyphRays::from_file(&(input.to_owned() + "396.dat"));
+    let _ = _parse_file(&(input.to_owned() + "1514.dat"));
+    let rays = GlyphRays::from_file(&(input.to_owned() + "1514.dat"));
+    resolve_overlap(rays, &dataset);
     // let debug = rays.get_sub_glyph(5, rays.width - 5);
     // print_rays(rays);
     // print_rays(&debug);
-    // panic!();
+    panic!();
 
 
     // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
@@ -42,9 +48,6 @@ fn main() -> io::Result<()> {
     // //panic!("");
 
 
-    let input2 = "/home/david/Downloads/dats/";
-    // Update this to use glyph_dataset
-    let dataset = GlyphDataset::build_from_dir(&input2);
     let dirs:Vec<std::path::PathBuf> = fs::read_dir(input2).unwrap()
         .filter(|x| x.as_ref().unwrap().path().is_dir())
         .map(|x| x.unwrap().path())
@@ -136,6 +139,7 @@ fn main() -> io::Result<()> {
                                 *found_match.lock().unwrap() += 1;
                             }
                             else {
+                                println!("Overlap detected {}", file_name);
                                 resolve_overlap(ray, &dataset);
                             }
                         },
@@ -311,9 +315,9 @@ fn main() -> io::Result<()> {
     fn resolve_overlap(mut overlap: GlyphRays, dataset:&GlyphDataset) {
         println!("Trying to resolve overlap");
         print_rays(&overlap);
-        while overlap.width > dataset.min_width {
+        while overlap.width >= dataset.min_width {
             let candidates = dataset.fuzzy_get(&overlap);
-            if candidates.is_none() { break; }
+            if candidates.is_none() { println!("Found 0 candidates for overlap"); break; }
             let candidates = candidates.unwrap();
             let mut best_candidate:Option<(u32, &Glyph)> = None;
             for candidate in candidates {
@@ -340,7 +344,10 @@ fn main() -> io::Result<()> {
                         _ => break,
                     }
                 },
-                _ => println!("No matches found for overlap"),
+                _ => {
+                    println!("No matches found for overlap");
+                    break;
+                }
             }
         }
         println!("");
