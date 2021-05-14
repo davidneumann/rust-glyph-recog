@@ -189,7 +189,7 @@ fn main() -> io::Result<()> {
             horiz_delta += get_vec_delta(&r1.m2r, &r2.m2r, y as usize, max_width / 2, 0) as f64;
             horiz_delta += get_vec_delta(&r1.m2l, &r2.m2l, y as usize, max_width / 2, 0) as f64;
         }
-        horiz_delta = horiz_delta / max_width as f64;
+        horiz_delta = horiz_delta / max_height as f64 / max_width as f64;
 
         //Vertical vecs
         let mut vert_delta = 0.0;
@@ -199,9 +199,9 @@ fn main() -> io::Result<()> {
             vert_delta += get_vec_delta_u8(&r1.m2b, &r2.m2b, x as usize, max_height / 2, 2) as f64;
             vert_delta += get_vec_delta_u8(&r1.m2t, &r2.m2t, x as usize, max_height / 2, 2) as f64;
         }
-        vert_delta = vert_delta / max_height as f64;
+        vert_delta = vert_delta / max_width as f64 / max_height as f64;
 
-        ((vert_delta + horiz_delta) * 100.0) as u32
+        ((vert_delta + horiz_delta) * 10000.0) as u32
     }
 
     fn get_vec_delta_u8(l:&Vec<u8>, r:&Vec<u8>, index:usize, max_value:u8, stretch_limit:usize) -> u8 {
