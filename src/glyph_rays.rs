@@ -129,3 +129,63 @@ impl GlyphRays {
         Some(glyph_with_raw(width, height, pixels_from_top, input))
     }
 }
+
+impl GlyphRays {
+    pub fn average(samples:&Vec<GlyphRays>) -> GlyphRays {
+        let mut total_raw = vec![vec![0usize; samples[0].height as usize]; samples[0].width as usize];
+        let mut total_width = 0u32;
+        let mut total_height = 0u32;
+        let mut total_pixels_from_top = 0i32;
+        let mut total_l2r = vec![0u32; samples[0].l2r.len()];
+        let mut total_t2b = vec![0u32; samples[0].t2b.len()];
+        let mut total_r2l = vec![0u32; samples[0].r2l.len()];
+        let mut total_b2t = vec![0u32; samples[0].b2t.len()];
+        let mut total_m2l = vec![0u32; samples[0].m2l.len()];
+        let mut total_m2t = vec![0u32; samples[0].m2t.len()];
+        let mut total_m2r = vec![0u32; samples[0].m2r.len()];
+        let mut total_m2b = vec![0u32; samples[0].m2b.len()];
+        for cur in samples {
+            total_width += cur.width as u32;
+            total_height += cur.height as u32;
+            total_pixels_from_top += cur.pixels_from_top as i32;
+            for x in 0..cur.width as usize {
+                total_t2b[x] += cur.t2b[x] as u32;
+                total_b2t[x] += cur.b2t[x] as u32;
+                total_m2b[x] += cur.m2b[x] as u32;
+                total_m2t[x] += cur.m2t[x] as u32;
+            }
+            for y in 0..cur.height as usize {
+                total_l2r[y] += cur.l2r[y] as u32;
+                total_r2l[y] += cur.r2l[y] as u32;
+                total_m2r[y] += cur.m2r[y] as u32;
+                total_m2l[y] += cur.m2l[y] as u32;
+            }
+            for x in 0..cur.width as usize {
+                for y in 0..cur.height as usize {
+                    if cur.raw[x][y] { total_raw[x][y] += 1; }
+                }
+            }
+        }
+        let count = samples.len();
+        let mut avg_raw = vec![vec![false; samples[0].height as usize]; samples[0].width as usize];
+        for x in 0..samples[0].width as usize {
+            for y in 0..samples[0].height as usize {
+                avg_raw[x][y] = total_raw[x][y]  >= count / 2 as usize
+            }
+        }
+        GlyphRays {
+            width: (total_width / count as u32) as u16,
+            height: (total_height / count as u32) as u8,
+            pixels_from_top: (total_pixels_from_top / count as i32) as i8,
+            l2r: total_l2r.iter().map(|x| (x / count as u32) as u16).collect(),
+            t2b: total_t2b.iter().map(|x| (x / count as u32) as u8).collect(),
+            r2l: total_r2l.iter().map(|x| (x / count as u32) as u16).collect(),
+            b2t: total_b2t.iter().map(|x| (x / count as u32) as u8).collect(),
+            m2l: total_m2l.iter().map(|x| (x / count as u32) as u16).collect(),
+            m2t: total_m2t.iter().map(|x| (x / count as u32) as u8).collect(),
+            m2r: total_m2r.iter().map(|x| (x / count as u32) as u16).collect(),
+            m2b: total_m2b.iter().map(|x| (x / count as u32) as u8).collect(),
+            raw: avg_raw,
+        }
+    }
+}
