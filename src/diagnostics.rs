@@ -1,6 +1,6 @@
 use crate::GlyphRays;
 
-pub fn print_rays(rays: &GlyphRays) -> () {
+pub fn _print_rays(rays: &GlyphRays) -> () {
     println!();
     println!("l2r {:?}", rays.l2r);
     println!("r2l {:?}", rays.r2l);

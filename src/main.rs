@@ -1,4 +1,6 @@
-use std::{fs::{self, File}, io::{self, Read}};
+use std::fs::File;
+use std::fs;
+use std::io::{self, Read};
 mod glyph_rays;
 mod glyph;
 mod glyph_dataset;
@@ -11,6 +13,8 @@ use glyph_recognizer::get_ray_delta;
 use std::time::Instant;
 use rayon::prelude::*;
 
+use trees::{Node, Tree, tr};
+
 use crate::glyph::Glyph;
 
 fn main() -> io::Result<()> {
@@ -21,11 +25,40 @@ fn main() -> io::Result<()> {
     // dataset.print_max_errors();
     // panic!();
 
-    // let input = "/home/david/Downloads/0/";
-    // let _ = _parse_file(&(input.to_owned() + "5017.dat"));
-    // let rays = GlyphRays::from_file(&(input.to_owned() + "5017.dat"));
-    // resolve_overlap(rays, &dataset);
-    // panic!();
+    let input = "/home/david/Downloads/0/";
+    let _ = _parse_file(&(input.to_owned() + "5017.dat"));
+    let rays = GlyphRays::from_file(&(input.to_owned() + "5017.dat"));
+    let start = Instant::now();
+    let empty_rays = GlyphRays {
+        width: 0,
+        height: 0,
+        pixels_from_top: 0,
+        l2r: Vec::new(),
+        t2b: Vec::new(),
+        r2l: Vec::new(),
+        b2t: Vec::new(),
+        m2l: Vec::new(),
+        m2t: Vec::new(),
+        m2r: Vec::new(),
+        m2b: Vec::new(),
+        raw: Vec::new(),
+    };
+    let empty_glyph = Glyph {
+        value: "".to_string(),
+        max_error: 0,
+        ray: empty_rays,
+    };
+    let recog = GlyphRecognizer {
+        dataset: &dataset,
+        empty: &empty_glyph,
+    };
+    let mut tree = tr(CandidateMatch { glyph: &empty_glyph, score: 0 });
+    let result = recog.get_overlap_paths(&rays);
+    for i in result.unwrap() { tree.push_back(i); }
+    println!("Build overlap tree in {:?}", start.elapsed());
+    println!("{}", _print_tree(&tree));
+    panic!();
+    resolve_overlap(rays, &dataset);
 
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
@@ -142,6 +175,15 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+fn _print_tree(node: &Node<CandidateMatch>) -> String {
+    if node.has_no_child() {
+        node.data().glyph.value.to_string()
+    } else {
+        format!("{}( {})", node.data().glyph.value.to_string(),
+                 node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
+    }
+}
+
 fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
     let mut first_clone= first.clone();
     let mut second_clone = second.clone();
@@ -199,9 +241,81 @@ fn _parse_file(input: &str) -> io::Result<()> {
     Ok(())
 }
 
+struct CandidateMatch<'a> {
+    glyph: &'a Glyph,
+    score: u32,
+}
+
+struct GlyphRecognizer<'a> {
+    dataset: &'a GlyphDataset,
+    empty: &'a Glyph,
+}
+
+impl GlyphRecognizer<'_> {
+    fn get_overlap_paths(&self, overlap: &GlyphRays) -> Option<Vec<Tree<CandidateMatch>>> {
+        println!("Overlap: {},{}", overlap.width, overlap.height);
+        if overlap.width < self.dataset.min_width {
+            println!("To skiny");
+            return None;
+        }
+        let mut results = Vec::new();
+        let candidates = self.dataset.fuzzy_get(&overlap);
+        if candidates.is_none() {
+            println!("No candidates found");
+            return None;
+        }
+        let candidates = candidates.unwrap();
+        for candidate in candidates {
+            let sub = overlap.get_sub_glyph(0, candidate.ray.width);
+            if sub.is_none() { continue; }
+            let sub = sub.unwrap();
+            let score = get_ray_delta(&sub, &candidate.ray) as f64;
+            if score <= candidate.max_error as f64 * 1.5 {
+                println!("Passing candidate: {}", candidate.value);
+                //Make entry for this possibly correct item
+                let mut new_node = tr(CandidateMatch{
+                    glyph: candidate,
+                    score: score as u32,
+                });
+
+                //Try to find any children
+                let new_width = overlap.width - candidate.ray.width;
+                let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
+                match sub {
+                    Some(sub) => {
+                        //sub.print();
+                        println!("Trying to find child children");
+                        match self.get_overlap_paths(&sub) {
+                            Some(c) => {
+                                println!("{} children found", c.len());
+                                for i in c { new_node.push_back(i) }
+                    },
+                    _ => println!("No children found"),
+                }
+                    },
+                    None => println!("Could not make sub glyph"),
+                }
+
+                //Add passing candidate
+                results.push(new_node);
+            }
+        }
+        //Give a penalty to failure to match to anything
+        if results.len() == 0 {
+            let score = 5000 * overlap.width as u32;
+            results.push(tr(CandidateMatch {
+                glyph: self.empty,
+                score,
+            }));
+        }
+        if results.len() > 0 { return Some(results) }
+        else { println!("No candidates matched"); return None };
+    }
+}
+
 fn resolve_overlap(mut overlap: GlyphRays, dataset:&GlyphDataset) {
     println!("Trying to resolve overlap");
-    diagnostics::print_rays(&overlap);
+    overlap.print();
     while overlap.width >= dataset.min_width {
         let candidates = dataset.fuzzy_get(&overlap);
         if candidates.is_none() { println!("Found 0 candidates for overlap"); break; }
@@ -229,7 +343,7 @@ fn resolve_overlap(mut overlap: GlyphRays, dataset:&GlyphDataset) {
                 match debug {
                     Some(debug) => {
                         println!("Remaining after chop");
-                        diagnostics::print_rays(&debug);
+                        debug.print();
                         overlap = debug;
                     },
                     _ => break,

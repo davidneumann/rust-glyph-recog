@@ -57,6 +57,23 @@ impl GlyphRays {
 
         glyph_with_raw(width, height, pixels_from_top as i8, input)
     }
+
+    pub fn empty() -> GlyphRays {
+        GlyphRays {
+            width: 0,
+            height: 0,
+            pixels_from_top: 0,
+            l2r: Vec::new(),
+            t2b: Vec::new(),
+            r2l: Vec::new(),
+            b2t: Vec::new(),
+            m2l: Vec::new(),
+            m2t: Vec::new(),
+            m2r: Vec::new(),
+            m2b: Vec::new(),
+            raw: Vec::new(),
+        }
+    }
 }
 
 fn glyph_with_raw(width:u16, height:u8, pixels_from_top:i8, input:Vec<Vec<bool>>) -> GlyphRays {
@@ -186,6 +203,37 @@ impl GlyphRays {
             m2r: total_m2r.iter().map(|x| (x / count as u32) as u16).collect(),
             m2b: total_m2b.iter().map(|x| (x / count as u32) as u8).collect(),
             raw: avg_raw,
+        }
+    }
+}
+
+impl GlyphRays {
+    pub fn print(&self) -> () {
+        println!();
+        println!("l2r {:?}", self.l2r);
+        println!("r2l {:?}", self.r2l);
+        println!("t2b {:?}", self.t2b);
+        println!("b2t {:?}", self.b2t);
+        println!("m2l {:?}", self.m2l);
+        println!("m2r {:?}", self.m2r);
+        println!("m2t {:?}", self.m2t);
+        println!("m2b {:?}", self.m2b);
+        println!("width {:?} height {:?} top {}", self.width, self.height, self.pixels_from_top);
+
+        let height = self.height;
+        for y in 0..height {
+            for x in 0..self.width {
+                if x < self.width - 1 &&  self.l2r[(y as usize)] == x      { print!("X"); }
+                else if x > 0 && self.r2l[y as usize] < self.width && self.width - 1 - self.r2l[(y as usize)] == x { print!("X"); }
+                else if y < height - 1 && self.t2b[(x as usize)] == y { print!("X"); }
+                else if y > 0 && self.b2t[(x as usize)] < height && height - 1 - self.b2t[(x as usize)] == y { print!("X"); }
+                else if x > 0 && self.width / 2 - self.m2l[(y as usize)] == x { print!("X"); }
+                else if x > 0 && self.m2r[(y as usize)] + self.width / 2 == x { print!("X"); }
+                else if y > 0 && height / 2 - self.m2t[(x as usize)] == y { print!("X"); }
+                else if y < height - 1 && self.m2b[(x as usize)] + height / 2 == y { print!("X"); }
+                else { print!(" "); }
+            }
+            println!();
         }
     }
 }

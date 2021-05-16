@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 rayon = "1.5"
+trees = "0.4.2"
 
 [profile.dev]
 opt-level = 0
