@@ -29,32 +29,12 @@ fn main() -> io::Result<()> {
     let _ = _parse_file(&(input.to_owned() + "5017.dat"));
     let rays = GlyphRays::from_file(&(input.to_owned() + "5017.dat"));
     let start = Instant::now();
-    let empty_rays = GlyphRays {
-        width: 0,
-        height: 0,
-        pixels_from_top: 0,
-        l2r: Vec::new(),
-        t2b: Vec::new(),
-        r2l: Vec::new(),
-        b2t: Vec::new(),
-        m2l: Vec::new(),
-        m2t: Vec::new(),
-        m2r: Vec::new(),
-        m2b: Vec::new(),
-        raw: Vec::new(),
-    };
-    let empty_glyph = Glyph {
-        value: "".to_string(),
-        max_error: 0,
-        ray: empty_rays,
-    };
     let recog = GlyphRecognizer {
         dataset: &dataset,
-        empty: &empty_glyph,
     };
-    let mut tree = tr(CandidateMatch { glyph: &empty_glyph, score: 0 });
+    let mut tree = tr(RecogKind::Penalty(0));
     let result = recog.get_overlap_paths(&rays);
-    for i in result.unwrap() { tree.push_back(i); }
+    for i in result { tree.push_back(i); }
     println!("Build overlap tree in {:?}", start.elapsed());
     println!("{}", _print_tree(&tree));
     panic!();
@@ -175,11 +155,15 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn _print_tree(node: &Node<CandidateMatch>) -> String {
+fn _print_tree(node: &Node<RecogKind>) -> String {
+    let val = match node.data() {
+        RecogKind::Match(g, score) => format!("{}_{}", g.value.to_string(), score),
+        RecogKind::Penalty(score) => format!("{}", score),
+    };
     if node.has_no_child() {
-        node.data().glyph.value.to_string()
+        val
     } else {
-        format!("{}( {})", node.data().glyph.value.to_string(),
+        format!("{}( {})", val,
         node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
     }
 }
@@ -241,18 +225,22 @@ fn _parse_file(input: &str) -> io::Result<()> {
     Ok(())
 }
 
-struct CandidateMatch<'a> {
-    glyph: &'a Glyph,
-    score: u32,
-}
+// struct CandidateMatch<'a> {
+//     glyph: &'a Glyph,
+//     score: u32,
+// }
 
 struct GlyphRecognizer<'a> {
     dataset: &'a GlyphDataset,
-    empty: &'a Glyph,
+}
+
+enum RecogKind<'a> {
+    Match(&'a Glyph, u32),
+    Penalty(u32),
 }
 
 impl GlyphRecognizer<'_> {
-    fn get_overlap_paths(&self, overlap: &GlyphRays) -> Option<Vec<Tree<CandidateMatch>>> {
+    fn get_overlap_paths(&self, overlap: &GlyphRays) -> Vec<Tree<RecogKind>> {
         println!("Overlap: {},{}", overlap.width, overlap.height);
         if overlap.width < self.dataset.min_width {
             println!("To skiny");
@@ -270,10 +258,7 @@ impl GlyphRecognizer<'_> {
                     if score <= candidate.max_error as f64 * 1.5 {
                         println!("Passing candidate: {}", candidate.value);
                         //Make entry for this possibly correct item
-                        let mut new_node = tr(CandidateMatch{
-                            glyph: candidate,
-                            score: score as u32,
-                        });
+                        let mut new_node = tr(RecogKind::Match(candidate, score as u32));
 
                         //Try to find any children
                         let new_width = overlap.width - candidate.ray.width;
@@ -282,13 +267,9 @@ impl GlyphRecognizer<'_> {
                             Some(sub) => {
                                 //sub.print();
                                 println!("Trying to find child children");
-                                match self.get_overlap_paths(&sub) {
-                                    Some(c) => {
-                                        println!("{} children found", c.len());
-                                        for i in c { new_node.push_back(i) }
-                                    },
-                                    _ => println!("No children found"),
-                                }
+                                let children = self.get_overlap_paths(&sub);
+                                println!("{} children found", children.len());
+                                for child in children { new_node.push_back(child) }
                             },
                             None => println!("Could not make sub glyph"),
                         }
@@ -301,14 +282,9 @@ impl GlyphRecognizer<'_> {
         }
         //Give a penalty to failure to match to anything
         if results.len() == 0 {
-            let score = 5000 * overlap.width as u32;
-            results.push(tr(CandidateMatch {
-                glyph: self.empty,
-                score,
-            }));
+            results.push(tr(RecogKind::Penalty(5000 * overlap.width as u32)));
         }
-        if results.len() > 0 { return Some(results) }
-        else { println!("No candidates matched"); return None };
+        return results
     }
 }
 
