@@ -180,7 +180,7 @@ fn _print_tree(node: &Node<CandidateMatch>) -> String {
         node.data().glyph.value.to_string()
     } else {
         format!("{}( {})", node.data().glyph.value.to_string(),
-                 node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
+        node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
     }
 }
 
@@ -256,48 +256,47 @@ impl GlyphRecognizer<'_> {
         println!("Overlap: {},{}", overlap.width, overlap.height);
         if overlap.width < self.dataset.min_width {
             println!("To skiny");
-            return None;
         }
         let mut results = Vec::new();
         let candidates = self.dataset.fuzzy_get(&overlap);
-        if candidates.is_none() {
-            println!("No candidates found");
-            return None;
-        }
-        let candidates = candidates.unwrap();
-        for candidate in candidates {
-            let sub = overlap.get_sub_glyph(0, candidate.ray.width);
-            if sub.is_none() { continue; }
-            let sub = sub.unwrap();
-            let score = get_ray_delta(&sub, &candidate.ray) as f64;
-            if score <= candidate.max_error as f64 * 1.5 {
-                println!("Passing candidate: {}", candidate.value);
-                //Make entry for this possibly correct item
-                let mut new_node = tr(CandidateMatch{
-                    glyph: candidate,
-                    score: score as u32,
-                });
+        match candidates {
+            None =>  println!("No candidates found"),
+            Some(candidates) => {
+                for candidate in candidates {
+                    let sub = overlap.get_sub_glyph(0, candidate.ray.width);
+                    if sub.is_none() { continue; }
+                    let sub = sub.unwrap();
+                    let score = get_ray_delta(&sub, &candidate.ray) as f64;
+                    if score <= candidate.max_error as f64 * 1.5 {
+                        println!("Passing candidate: {}", candidate.value);
+                        //Make entry for this possibly correct item
+                        let mut new_node = tr(CandidateMatch{
+                            glyph: candidate,
+                            score: score as u32,
+                        });
 
-                //Try to find any children
-                let new_width = overlap.width - candidate.ray.width;
-                let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
-                match sub {
-                    Some(sub) => {
-                        //sub.print();
-                        println!("Trying to find child children");
-                        match self.get_overlap_paths(&sub) {
-                            Some(c) => {
-                                println!("{} children found", c.len());
-                                for i in c { new_node.push_back(i) }
-                    },
-                    _ => println!("No children found"),
-                }
-                    },
-                    None => println!("Could not make sub glyph"),
-                }
+                        //Try to find any children
+                        let new_width = overlap.width - candidate.ray.width;
+                        let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
+                        match sub {
+                            Some(sub) => {
+                                //sub.print();
+                                println!("Trying to find child children");
+                                match self.get_overlap_paths(&sub) {
+                                    Some(c) => {
+                                        println!("{} children found", c.len());
+                                        for i in c { new_node.push_back(i) }
+                                    },
+                                    _ => println!("No children found"),
+                                }
+                            },
+                            None => println!("Could not make sub glyph"),
+                        }
 
-                //Add passing candidate
-                results.push(new_node);
+                        //Add passing candidate
+                        results.push(new_node);
+                    }
+                }
             }
         }
         //Give a penalty to failure to match to anything
