@@ -1,17 +1,17 @@
-use std::{fs::{self, File}, io::{self, Read}, sync::{Arc, Mutex}};
+use std::{fs::{self, File}, io::{self, Read}};
 mod glyph_rays;
 mod glyph;
 mod glyph_dataset;
 mod diagnostics;
+mod glyph_recognizer;
 use glyph_dataset::GlyphDataset;
 use glyph_rays::GlyphRays;
+use glyph_recognizer::get_ray_delta;
 
 use std::time::Instant;
 use rayon::prelude::*;
 
 use crate::glyph::Glyph;
-
-// =OVERLAPS= 0/39 is a good (T
 
 fn main() -> io::Result<()> {
     let input2 = "/home/david/Downloads/dats/";
@@ -73,7 +73,7 @@ fn main() -> io::Result<()> {
                     let ray = &GlyphRays::from_file(&(input2.to_owned() + &dir_name.to_owned() + "/" + &file_name));
                     let best_match = dataset.get(&ray.width, &ray.height).unwrap().into_iter()
                         .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
-                        .min_by_key(|glyph| GlyphDataset::get_ray_delta(ray, &glyph.ray));
+                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
                     if &best_match.as_ref().unwrap().value == &c { return true; }
                     else {
                         println!("Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().value);
@@ -212,7 +212,7 @@ fn resolve_overlap(mut overlap: GlyphRays, dataset:&GlyphDataset) {
             let sub = overlap.get_sub_glyph(0, candidate.ray.width);
             if sub.is_none() { continue; }
             let sub = sub.unwrap();
-            let score = GlyphDataset::get_ray_delta(&sub, &candidate.ray);
+            let score = get_ray_delta(&sub, &candidate.ray);
             println!("Candidate {} with score {}", &candidate.value, &score);
             let (best_score, _) = best_candidate.get_or_insert((score, candidate));
             if score < *best_score {
