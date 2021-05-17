@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{cmp, fs::File};
 use std::fs;
 use std::io::{self, Read};
 mod glyph_rays;
@@ -37,6 +37,8 @@ fn main() -> io::Result<()> {
     for i in result { tree.push_back(i); }
     println!("Build overlap tree in {:?}", start.elapsed());
     println!("{}", _print_tree(&tree));
+    let (min_str, min_val) = get_flat_trees(&tree);
+    println!("Min path: {} {}", min_str, min_val);
     panic!();
     resolve_overlap(rays, &dataset);
 
@@ -155,18 +157,6 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn _print_tree(node: &Node<RecogKind>) -> String {
-    let val = match node.data() {
-        RecogKind::Match(g, score) => format!("{}_{}", g.value.to_string(), score),
-        RecogKind::Penalty(score) => format!("{}", score),
-    };
-    if node.has_no_child() {
-        val
-    } else {
-        format!("{}( {})", val,
-        node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
-    }
-}
 
 fn _display_vec_with_max(label: &str, first: &Vec<i32>, second: &Vec<i32>, _max: i32){
     let mut first_clone= first.clone();
@@ -285,6 +275,40 @@ impl GlyphRecognizer<'_> {
             results.push(tr(RecogKind::Penalty(5000 * overlap.width as u32)));
         }
         return results
+    }
+}
+fn get_flat_trees(node: &Node<RecogKind>) -> (String, u32) {
+    let (my_str, my_val) = match node.data() {
+            RecogKind::Match(s, v) => (s.value.clone(), *v),
+            RecogKind::Penalty(s) => (String::new(), *s),
+    };
+    if node.has_no_child() {
+        (my_str, my_val)
+    }
+    else {
+        let mut min = std::u32::MAX;
+        let mut min_child_str = String::new();
+        for i in node.iter() {
+            let (child_str, score) = get_flat_trees(i);
+            if score <= min {
+                min = score;
+                min_child_str = child_str;
+            }
+        }
+        (format!("{}{}", my_str, min_child_str), my_val + min)
+    }
+}
+
+fn _print_tree(node: &Node<RecogKind>) -> String {
+    let val = match node.data() {
+        RecogKind::Match(g, score) => format!("{}_{}", g.value.to_string(), score),
+        RecogKind::Penalty(score) => format!("{}", score),
+    };
+    if node.has_no_child() {
+        val
+    } else {
+        format!("{}( {})", val,
+        node.iter().fold(String::new(), |s,c| s + &_print_tree(c) + &" "))
     }
 }
 
