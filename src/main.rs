@@ -18,14 +18,14 @@ use trees::{Node, tr};
 use crate::{glyph::Glyph, glyph_recognizer::GlyphRecognizer};
 
 fn main() -> io::Result<()> {
-    let input2 = "/home/david/Downloads/dats/";
+    let input2 = "dats/";
 
     let dataset = GlyphDataset::build_from_dir(&input2);
 
     // dataset.print_max_errors();
     // panic!();
 
-    // let input = "/home/david/Downloads/dats/overlaps/";
+    // let input = "dats/overlaps/";
     // let debug_input = format!("{}{}", &input, "99_114.dat");
     // println!("{}", &debug_input);
     // let _ = _parse_file(&debug_input);
@@ -42,31 +42,6 @@ fn main() -> io::Result<()> {
     // let (min_str, min_val) = get_flat_trees(&tree);
     // println!("Min path: {} {}", min_str, min_val);
     // panic!();
-
-    // for file in fs::read_dir(input)?{
-    //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
-    // }
-    // panic!();
-    // println!("66/0");
-    // let _debug = "test";
-
-    // let debug = rays.get_sub_glyph(5, rays.width - 5);
-    // print_rays(rays);
-    // print_rays(&debug);
-
-
-    // let ray2 = &GlyphRays::from_file(&(input.to_owned() + "115.dat"));
-    // println!("66/115");
-    // print_rays(ray2);
-    // println!("Delta to Ref: {}", get_ray_delta(rays, ray2));
-
-    // let input2 = "/home/david/Downloads/dats/";
-    // let ray_l = &GlyphRays::from_file(&(input2.to_owned() + "54/229.dat"));
-    // println!("54/229");
-    // print_rays(ray_l);
-    // println!("Delta for l and \"I\": {}", get_ray_delta(ray2, ray_l));
-    // //panic!("");
-
 
     let dirs:Vec<std::path::PathBuf> = fs::read_dir(input2).unwrap()
         .filter(|x| x.as_ref().unwrap().path().is_dir())
@@ -118,7 +93,6 @@ fn main() -> io::Result<()> {
 
     //Test overlaps
     let start = Instant::now();
-    //let overlap_dir = "/home/david/Downloads/0/";
     let total = Arc::new(Mutex::new(0));
     let matches_found = Arc::new(Mutex::new(0));
     let recog = GlyphRecognizer {
