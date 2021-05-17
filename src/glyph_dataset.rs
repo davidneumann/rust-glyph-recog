@@ -16,6 +16,7 @@ impl GlyphDataset {
         for dir in fs::read_dir(input).unwrap().into_iter().filter(|x| x.as_ref().unwrap().path().is_dir())
         {
             let dir_name = dir.unwrap().file_name().to_str().unwrap().to_owned();
+            if dir_name == "overlaps" { continue; }
             let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
             let files = fs::read_dir(input.to_owned() + &dir_name).unwrap()
                 .into_iter()

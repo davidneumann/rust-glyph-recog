@@ -14,7 +14,8 @@ pub enum RecogKind<'a> {
 
 impl GlyphRecognizer<'_> {
     pub fn get_overlap_paths(&self, overlap: &GlyphRays) -> Vec<Tree<RecogKind>> {
-        // println!("Overlap: {},{}", overlap.width, overlap.height);
+        //println!("Overlap: {},{}", overlap.width, overlap.height);
+        //overlap.print_raw();
         // if overlap.width < self.dataset.min_width {
         //     println!("To skiny");
         // }
@@ -24,11 +25,13 @@ impl GlyphRecognizer<'_> {
             None =>  (),//println!("No candidates found"),
             Some(candidates) => {
                 for candidate in candidates {
+                    //print!("Trying {}", &candidate.value);
                     let sub = overlap.get_sub_glyph(0, candidate.ray.width);
                     if sub.is_none() { continue; }
                     let sub = sub.unwrap();
                     let score = get_ray_delta(&sub, &candidate.ray) as f64;
-                    if score <= candidate.max_error as f64 * 1.5 {
+                    //println!(" score {}. Max error {}", score, candidate.max_error);
+                    if score <= f64::max(1500f64, candidate.max_error as f64 * 1.5) {
                         //println!("Passing candidate: {}", candidate.value);
                         //Make entry for this possibly correct item
                         let mut new_node = tr(RecogKind::Match(candidate, score as u32));
@@ -38,7 +41,7 @@ impl GlyphRecognizer<'_> {
                         let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
                         match sub {
                             Some(sub) => {
-                                //sub.print();
+                                //sub.print_raw();
                                 //println!("Trying to find child children");
                                 let children = self.get_overlap_paths(&sub);
                                 //println!("{} children found", children.len());
