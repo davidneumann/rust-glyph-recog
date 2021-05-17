@@ -236,4 +236,14 @@ impl GlyphRays {
             println!();
         }
     }
+
+    pub fn print_raw(&self) {
+        for y in 0..self.height as usize {
+            for x in 0..self.width as usize {
+                if self.raw[x][y] { print!("H"); }
+                else { print!(" "); }
+            }
+            println!();
+        }
+    }
 }

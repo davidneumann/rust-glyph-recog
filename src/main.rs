@@ -1,4 +1,4 @@
-use std::{cmp, fs::File};
+use std::{cmp, fs::File, sync::{Arc, Mutex}};
 use std::fs;
 use std::io::{self, Read};
 mod glyph_rays;
@@ -8,14 +8,14 @@ mod diagnostics;
 mod glyph_recognizer;
 use glyph_dataset::GlyphDataset;
 use glyph_rays::GlyphRays;
-use glyph_recognizer::get_ray_delta;
+use glyph_recognizer::{RecogKind, get_ray_delta};
 
 use std::time::Instant;
 use rayon::prelude::*;
 
-use trees::{Node, Tree, tr};
+use trees::{Node, tr};
 
-use crate::glyph::Glyph;
+use crate::{glyph::Glyph, glyph_recognizer::GlyphRecognizer};
 
 fn main() -> io::Result<()> {
     let input2 = "/home/david/Downloads/dats/";
@@ -25,22 +25,22 @@ fn main() -> io::Result<()> {
     // dataset.print_max_errors();
     // panic!();
 
-    let input = "/home/david/Downloads/0/";
-    let _ = _parse_file(&(input.to_owned() + "5017.dat"));
-    let rays = GlyphRays::from_file(&(input.to_owned() + "5017.dat"));
-    let start = Instant::now();
-    let recog = GlyphRecognizer {
-        dataset: &dataset,
-    };
-    let mut tree = tr(RecogKind::Penalty(0));
-    let result = recog.get_overlap_paths(&rays);
-    for i in result { tree.push_back(i); }
-    println!("Build overlap tree in {:?}", start.elapsed());
-    println!("{}", _print_tree(&tree));
-    let (min_str, min_val) = get_flat_trees(&tree);
-    println!("Min path: {} {}", min_str, min_val);
-    panic!();
-    resolve_overlap(rays, &dataset);
+    // let input = "/home/david/Downloads/0/";
+    // let _ = _parse_file(&(input.to_owned() + "5017.dat"));
+    // let rays = GlyphRays::from_file(&(input.to_owned() + "5017.dat"));
+    // let start = Instant::now();
+    // let recog = GlyphRecognizer {
+    //     dataset: &dataset,
+    // };
+    // let mut tree = tr(RecogKind::Penalty(0));
+    // let result = recog.get_overlap_paths(&rays);
+    // for i in result { tree.push_back(i); }
+    // println!("Build overlap tree in {:?}", start.elapsed());
+    // println!("{}", _print_tree(&tree));
+    // let (min_str, min_val) = get_flat_trees(&tree);
+    // println!("Min path: {} {}", min_str, min_val);
+    // panic!();
+    // resolve_overlap(rays, &dataset);
 
     // for file in fs::read_dir(input)?{
     //     _parse_file(&(input.to_owned() + file?.path().file_name().unwrap().to_str().unwrap()));
@@ -72,6 +72,7 @@ fn main() -> io::Result<()> {
         .map(|x| x.unwrap().path())
         .collect();
 
+    //Test all known single extracted glyph samples
     let start = Instant::now();
     let match_results:Vec<bool> = dirs.par_iter()
         .map(|dir| -> Vec<bool> {
@@ -112,46 +113,56 @@ fn main() -> io::Result<()> {
 
     println!("Total: {}. Correct: {}. Took: {:?}", total, correct, start.elapsed());
 
-    //let start = Instant::now();
-    //let overlap_dir = "/home/david/Downloads/0/";
-    //let total = Arc::new(Mutex::new(0));
-    //let matches_found = Arc::new(Mutex::new(0));
-    //fs::read_dir(overlap_dir)?
-    //    .into_iter()
-    //    //.par_bridge()
-    //    .map(|x| x.unwrap())
-    //    .for_each(|file| {
-    //        //for file in files {
-    //        let file_path = file.path();
-    //        let file_name = file_path.file_name().unwrap().to_str().unwrap();
-    //        let ray = GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
-    //        match dataset.get(&ray.width, &ray.height) {
-    //            Some(glyphs) => {
-    //                let best_match = glyphs.into_iter()
-    //                    .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
-    //                    .min_by_key(|glyph| GlyphDataset::get_ray_delta(&ray, &glyph.ray));
-    //                match best_match {
-    //                    Some(best_match) => {
-    //                        let error = &GlyphDataset::get_ray_delta(&ray, &best_match.ray);
-    //                        if error <= &best_match.max_error {
-    //                            println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
-    //                                     &best_match.max_error);
-    //                            *matches_found.lock().unwrap() += 1;
-    //                        }
-    //                        else {
-    //                            println!("Overlap detected {}", file_name);
-    //                            resolve_overlap(ray, &dataset);
-    //                        }
-    //                    },
-    //                    _ => (),
-    //                }
-    //            },
-    //            _ => (),
-    //        }
-    //        *total.lock().unwrap() += 1;
-    //    });
+    //Test overlaps
+    let start = Instant::now();
+    let overlap_dir = "/home/david/Downloads/0/";
+    let total = Arc::new(Mutex::new(0));
+    let matches_found = Arc::new(Mutex::new(0));
+    let recog = GlyphRecognizer {
+        dataset: &dataset,
+    };
+    fs::read_dir(overlap_dir)?
+        .into_iter()
+        //.par_bridge()
+        .map(|x| x.unwrap())
+        .for_each(|file| {
+            //for file in files {
+            let file_path = file.path();
+            let file_name = file_path.file_name().unwrap().to_str().unwrap();
+            let ray = GlyphRays::from_file(&(overlap_dir.to_owned() + file_name));
+            match dataset.get(&ray.width, &ray.height) {
+                Some(glyphs) => {
+                    let best_match = glyphs.into_iter()
+                        .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                        .min_by_key(|glyph| get_ray_delta(&ray, &glyph.ray));
+                    match best_match {
+                        Some(best_match) => {
+                            let error = get_ray_delta(&ray, &best_match.ray);
+                            if error <= best_match.max_error {
+                                println!("{} found a match with {}. Error {}. Known max error {}", file_name, best_match.value, error,
+                                         &best_match.max_error);
+                                *matches_found.lock().unwrap() += 1;
+                            }
+                            else {
+                                println!("Overlap detected {}", file_name);
+                                ray.print_raw();
+                                let paths = recog.get_overlap_paths(&ray);
+                                let mut tree = tr(RecogKind::Penalty(0));
+                                for i in paths { tree.push_back(i); }
+                                let (resolved_str, resolved_error) = get_flat_trees(&tree);
+                                println!("{} {}", resolved_str, resolved_error);
+                                //resolve_overlap(ray, &dataset);
+                            }
+                        },
+                        _ => (),
+                    }
+                },
+                _ => (),
+            }
+            *total.lock().unwrap() += 1;
+        });
 
-    // println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), matches_found.lock().unwrap(), start.elapsed());
+     println!("Total overlaps: {}. Found matches: {}. Took {:?}", total.lock().unwrap(), matches_found.lock().unwrap(), start.elapsed());
 
 
     Ok(())
@@ -220,63 +231,6 @@ fn _parse_file(input: &str) -> io::Result<()> {
 //     score: u32,
 // }
 
-struct GlyphRecognizer<'a> {
-    dataset: &'a GlyphDataset,
-}
-
-enum RecogKind<'a> {
-    Match(&'a Glyph, u32),
-    Penalty(u32),
-}
-
-impl GlyphRecognizer<'_> {
-    fn get_overlap_paths(&self, overlap: &GlyphRays) -> Vec<Tree<RecogKind>> {
-        println!("Overlap: {},{}", overlap.width, overlap.height);
-        if overlap.width < self.dataset.min_width {
-            println!("To skiny");
-        }
-        let mut results = Vec::new();
-        let candidates = self.dataset.fuzzy_get(&overlap);
-        match candidates {
-            None =>  println!("No candidates found"),
-            Some(candidates) => {
-                for candidate in candidates {
-                    let sub = overlap.get_sub_glyph(0, candidate.ray.width);
-                    if sub.is_none() { continue; }
-                    let sub = sub.unwrap();
-                    let score = get_ray_delta(&sub, &candidate.ray) as f64;
-                    if score <= candidate.max_error as f64 * 1.5 {
-                        println!("Passing candidate: {}", candidate.value);
-                        //Make entry for this possibly correct item
-                        let mut new_node = tr(RecogKind::Match(candidate, score as u32));
-
-                        //Try to find any children
-                        let new_width = overlap.width - candidate.ray.width;
-                        let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
-                        match sub {
-                            Some(sub) => {
-                                //sub.print();
-                                println!("Trying to find child children");
-                                let children = self.get_overlap_paths(&sub);
-                                println!("{} children found", children.len());
-                                for child in children { new_node.push_back(child) }
-                            },
-                            None => println!("Could not make sub glyph"),
-                        }
-
-                        //Add passing candidate
-                        results.push(new_node);
-                    }
-                }
-            }
-        }
-        //Give a penalty to failure to match to anything
-        if results.len() == 0 {
-            results.push(tr(RecogKind::Penalty(5000 * overlap.width as u32)));
-        }
-        return results
-    }
-}
 fn get_flat_trees(node: &Node<RecogKind>) -> (String, u32) {
     let (my_str, my_val) = match node.data() {
             RecogKind::Match(s, v) => (s.value.clone(), *v),

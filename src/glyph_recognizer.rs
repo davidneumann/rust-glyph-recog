@@ -1,6 +1,65 @@
 use std::cmp;
 
-use crate::glyph_rays::GlyphRays;
+use crate::{glyph::Glyph, glyph_dataset::GlyphDataset, glyph_rays::GlyphRays};
+use trees::{Tree, tr};
+
+pub struct GlyphRecognizer<'a> {
+    pub dataset: &'a GlyphDataset,
+}
+
+pub enum RecogKind<'a> {
+    Match(&'a Glyph, u32),
+    Penalty(u32),
+}
+
+impl GlyphRecognizer<'_> {
+    pub fn get_overlap_paths(&self, overlap: &GlyphRays) -> Vec<Tree<RecogKind>> {
+        // println!("Overlap: {},{}", overlap.width, overlap.height);
+        // if overlap.width < self.dataset.min_width {
+        //     println!("To skiny");
+        // }
+        let mut results = Vec::new();
+        let candidates = self.dataset.fuzzy_get(&overlap);
+        match candidates {
+            None =>  (),//println!("No candidates found"),
+            Some(candidates) => {
+                for candidate in candidates {
+                    let sub = overlap.get_sub_glyph(0, candidate.ray.width);
+                    if sub.is_none() { continue; }
+                    let sub = sub.unwrap();
+                    let score = get_ray_delta(&sub, &candidate.ray) as f64;
+                    if score <= candidate.max_error as f64 * 1.5 {
+                        //println!("Passing candidate: {}", candidate.value);
+                        //Make entry for this possibly correct item
+                        let mut new_node = tr(RecogKind::Match(candidate, score as u32));
+
+                        //Try to find any children
+                        let new_width = overlap.width - candidate.ray.width;
+                        let sub = overlap.get_sub_glyph(candidate.ray.width, new_width);
+                        match sub {
+                            Some(sub) => {
+                                //sub.print();
+                                //println!("Trying to find child children");
+                                let children = self.get_overlap_paths(&sub);
+                                //println!("{} children found", children.len());
+                                for child in children { new_node.push_back(child) }
+                            },
+                            None => (),//println!("Could not make sub glyph"),
+                        }
+
+                        //Add passing candidate
+                        results.push(new_node);
+                    }
+                }
+            }
+        }
+        //Give a penalty to failure to match to anything
+        if results.len() == 0 {
+            results.push(tr(RecogKind::Penalty(5000 * overlap.width as u32)));
+        }
+        return results
+    }
+}
 
 pub fn get_ray_delta(r1: &GlyphRays, r2:&GlyphRays) -> u32 {
     let max_width = cmp::max(r1.width, r2.width) - 1;
