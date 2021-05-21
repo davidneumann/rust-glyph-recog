@@ -1,4 +1,8 @@
-use std::{cmp, fs::File, sync::{Arc, Mutex}};
+#![feature(test)]
+
+extern crate test;
+
+use std::{fs::File, sync::{Arc, Mutex}};
 use std::fs;
 use std::io::{self, Read};
 mod glyph_rays;
@@ -307,3 +311,75 @@ fn main() -> io::Result<()> {
         }
         println!("");
     }
+
+
+#[cfg(test)]
+    mod tests {
+        use std::path::PathBuf;
+
+        use super::*;
+        use test::Bencher;
+
+        fn get_bench_assemble() -> (GlyphDataset, Vec<PathBuf>, &'static str) {
+            let input_dir = "dats/";
+            let dataset = GlyphDataset::build_from_dir(input_dir);
+
+            let dirs:Vec<PathBuf> = fs::read_dir(input_dir).unwrap()
+                .filter(|x| x.as_ref().unwrap().path().is_dir())
+                .map(|x| x.unwrap().path())
+                .collect();
+
+            (dataset, dirs, input_dir)
+        }
+
+        #[bench]
+        fn bench_samples_single_thread(b: &mut Bencher) {
+            let (dataset, dirs, input_dir) = get_bench_assemble();
+
+            let targets:Vec<&PathBuf> = dirs.iter().filter(|dir| dir.file_name().unwrap().to_str().unwrap() != "overlaps").collect();
+
+            b.iter(move|| {
+                targets.iter()
+                    .for_each(|dir:&&PathBuf| {
+                        // //for dir in dirs {
+                        let dir_name = dir.file_name().unwrap().to_str().unwrap().to_owned();
+                        fs::read_dir(input_dir.to_owned() + dir.file_name().unwrap().to_str().unwrap()).unwrap()
+                            .map(|x| x.unwrap())
+                            .for_each(|file| {
+                                let file_path = file.path();
+                                let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                                let ray = &GlyphRays::from_file(&(input_dir.to_owned() + &dir_name.to_owned() + "/" + &file_name));
+                                dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+                                    .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                                    .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                            });
+                    });
+                    });
+            }
+
+            #[bench]
+            fn bench_samples_multi_thread(b: &mut Bencher) {
+                let (dataset, dirs, input_dir) = get_bench_assemble();
+
+                let targets:Vec<&PathBuf> = dirs.iter().filter(|dir| dir.file_name().unwrap().to_str().unwrap() != "overlaps").collect();
+
+                b.iter(move|| {
+                    targets.par_iter()
+                        .for_each(|dir:&&PathBuf| {
+                            // //for dir in dirs {
+                            let dir_name = dir.file_name().unwrap().to_str().unwrap().to_owned();
+                            fs::read_dir(input_dir.to_owned() + dir.file_name().unwrap().to_str().unwrap()).unwrap()
+                                .par_bridge()
+                                .map(|x| x.unwrap())
+                                .for_each(|file| {
+                                    let file_path = file.path();
+                                    let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                                    let ray = &GlyphRays::from_file(&(input_dir.to_owned() + &dir_name.to_owned() + "/" + &file_name));
+                                    dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+                                        .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                                });
+                        });
+                        });
+                }
+            }
