@@ -312,17 +312,13 @@ fn main() -> io::Result<()> {
         println!("");
     }
 
-
 #[cfg(test)]
-mod tests {
+mod common {
     use std::path::PathBuf;
 
     use super::*;
-    use test::Bencher;
 
-    use rand::seq::IteratorRandom;
-
-    fn get_bench_assemble() -> (GlyphDataset, Vec<PathBuf>, &'static str) {
+    pub fn get_bench_assemble() -> (GlyphDataset, Vec<PathBuf>, &'static str) {
         let input_dir = "dats/";
         let dataset = GlyphDataset::build_from_dir(input_dir);
 
@@ -333,6 +329,76 @@ mod tests {
 
         (dataset, dirs, input_dir)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common::*;
+
+    #[test]
+    fn test_samples() {
+        let (dataset, dirs, input_dir) = get_bench_assemble();
+
+        dirs.into_iter()
+        .filter(|dir| dir.file_name().unwrap().to_str().unwrap() != "overlaps")
+        .for_each(|dir| {
+            // //for dir in dirs {
+            let dir_name = dir.file_name().unwrap().to_str().unwrap().to_owned();
+            let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
+            fs::read_dir(input_dir.to_owned() + dir.file_name().unwrap().to_str().unwrap()).unwrap()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .for_each(|file| {
+                    let file_path = file.path();
+                    let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                    let ray = &GlyphRays::from_file(&(input_dir.to_owned() + &dir_name.to_owned() + "/" + &file_name));
+                    let best_match = dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+                        .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+                        .min_by_key(|glyph| get_ray_delta(ray, &glyph.ray));
+                    assert_eq!(&best_match.as_ref().unwrap().value, &c, "Incorrect match with {}/{}. Expected {} Got {}", &dir_name, &file_name, c, best_match.as_ref().unwrap().value);
+                });
+        });
+    }
+
+    #[test]
+    fn test_overlaps() {
+        let (dataset, dirs, input_dir) = get_bench_assemble();
+
+        let recog = GlyphRecognizer {
+            dataset: &dataset,
+        };
+
+        let overlap_dir = dirs.iter().find(|dir| dir.file_name().unwrap().to_str().unwrap() == "overlaps").unwrap();
+        fs::read_dir(overlap_dir).unwrap()
+            .into_iter()
+            .par_bridge()
+            .map(|x| x.unwrap())
+            .for_each(|file| {
+                let file_path = file.path();
+                let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                let safe_file_name = file_name.trim_end_matches(".dat");
+                let correct: String = safe_file_name.split('_').map(|s| std::char::from_u32(s.parse::<u32>().unwrap()).unwrap()).collect();
+                let ray = GlyphRays::from_file(&format!("{}/{}/{}", &input_dir, overlap_dir.file_name().unwrap().to_str().unwrap().to_owned(), file_name));
+                let paths = recog.get_overlap_paths(&ray);
+                let mut tree = tr(RecogKind::Penalty(0));
+                for i in paths { tree.push_back(i); }
+                let (resolved_str, _) = get_flat_trees(&tree);
+                assert_eq!(correct, resolved_str, "Failed to parse overlap {}. Expected {}. Got {}", file_name, &correct, &resolved_str);
+            });
+    }
+}
+
+#[cfg(test)]
+        mod benchs {
+    use std::path::PathBuf;
+
+    use common::*;
+    use super::*;
+    use test::Bencher;
+
+    use rand::seq::IteratorRandom;
+
 
     //#[bench]
     //fn bench_samples_all_single_thread(b: &mut Bencher) {
