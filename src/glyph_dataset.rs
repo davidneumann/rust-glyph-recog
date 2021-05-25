@@ -1,9 +1,11 @@
+use std::collections::HashSet;
 use std::{cmp, collections::HashMap, fs};
 use super::{glyph::Glyph, glyph_rays::GlyphRays};
 use super::glyph_recognizer::get_ray_delta;
 
 pub struct GlyphDataset {
     glyph_dict: HashMap<u8, HashMap<u16, Vec<Glyph>>>,
+    possible_overlaps: HashSet<String>,
     pub min_width: u16,
 }
 
@@ -11,12 +13,24 @@ impl GlyphDataset {
     pub fn build_from_dir(input: &str) -> GlyphDataset {
         //let mut glyph_dict : HashMap<(u16, u8), HashMap<String, GlyphRays>> = HashMap::new();
         let mut glyph_dict : HashMap<u8, HashMap<u16, Vec<Glyph>>> = HashMap::new();
+        let mut possible_overlaps = HashSet::new();
         let mut min_height = std::u8::MAX;
+        let _debug = input.to_owned() + "overlaps/";
+        let _debug1 = fs::read_dir(input.to_owned() + "overlaps/").unwrap().into_iter().map(|x| x.unwrap()).count();
         let mut min_width = std::u16::MAX;
+        for dir in fs::read_dir(input.to_owned() + "overlaps/").unwrap().into_iter().filter(|x| x.as_ref().unwrap().path().is_file()) {
+            let file_name = dir.unwrap().file_name().to_str().as_ref().unwrap().replace(".dat", "").to_owned();
+            let overlaps : Vec<String> = file_name.split("_").to_owned().into_iter().map(|i| std::char::from_u32(i.to_owned().parse::<u32>().unwrap()).unwrap().to_string()).collect();
+            //println!("New overlaps {:?}", overlaps);
+            let _debug2 = possible_overlaps.len();
+            possible_overlaps.extend(overlaps.clone());
+        }
         for dir in fs::read_dir(input).unwrap().into_iter().filter(|x| x.as_ref().unwrap().path().is_dir())
         {
             let dir_name = dir.unwrap().file_name().to_str().unwrap().to_owned();
-            if dir_name == "overlaps" { continue; }
+            if dir_name == "overlaps" {
+                continue;
+            }
             let c = std::char::from_u32(dir_name.parse::<u32>().unwrap()).unwrap().to_string();
             let files = fs::read_dir(input.to_owned() + &dir_name).unwrap()
                 .into_iter()
@@ -41,6 +55,7 @@ impl GlyphDataset {
             for kvp in averages {
                 //super::diagnostics::print_rays(&kvp.1);
                 let max_error = samples.get(kvp.0).unwrap().iter().map(|s| get_ray_delta(&kvp.1, s)).max().unwrap();
+                //println!("Adding {} {},{}", &c, kvp.0.0, kvp.0.1);
                 glyph_dict.entry(kvp.0.1).or_insert(HashMap::new()).entry(kvp.0.0).or_insert(Vec::new()).push(Glyph{
                     value: c.clone(),
                     max_error,
@@ -49,8 +64,29 @@ impl GlyphDataset {
             }
         }
 
+        //println!("Possible overlaps");
+        //for i in &possible_overlaps {
+        //    println!("{}", i);
+        //}
+
+        //println!("Overlaps check");
+        //let _debug3 = possible_overlaps.len();
+        //for kvp1 in &glyph_dict {
+        //    for kvp2 in kvp1.1 {
+        //        for glyph in kvp2.1 {
+        //            //println!("{}", &glyph.value);
+        //            let _debug5 = possible_overlaps.len();
+        //            let _debug4 = possible_overlaps.contains(&glyph.value);
+        //            if _debug4 {
+        //                //println!("");
+        //            }
+        //        }
+        //    }
+        //}
+
         GlyphDataset{
             glyph_dict,
+            possible_overlaps,
             min_width,
         }
     }
@@ -82,8 +118,8 @@ impl GlyphDataset {
             let candidates = self.get(&width, &height);
             match candidates {
                 Some(candidates) => {
-                    for candidate in candidates {
-                        if (candidate.ray.pixels_from_top - valid_top).abs() < 2 {
+                    for candidate in candidates.iter().filter(|c| self.possible_overlaps.contains(&c.value)) {
+                        if (candidate.ray.pixels_from_top - valid_top).abs() <= 2 {
                             results.push(candidate);
                         }
                     }

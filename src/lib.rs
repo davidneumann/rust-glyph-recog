@@ -137,6 +137,7 @@ mod tests {
 
     use super::*;
     use common::*;
+    use rayon::iter::{ParallelBridge, ParallelIterator};
     use trees::tr;
 
     #[test]
@@ -173,21 +174,21 @@ mod tests {
         };
 
         let overlap_dir = dirs.iter().find(|dir| dir.file_name().unwrap().to_str().unwrap() == "overlaps").unwrap();
-        fs::read_dir(overlap_dir).unwrap()
-            .into_iter()
-            .map(|x| x.unwrap())
-            .for_each(|file| {
-                let file_path = file.path();
-                let file_name = file_path.file_name().unwrap().to_str().unwrap();
-                let safe_file_name = file_name.trim_end_matches(".dat");
-                let correct: String = safe_file_name.split('_').map(|s| std::char::from_u32(s.parse::<u32>().unwrap()).unwrap()).collect();
-                let ray = GlyphRays::from_file(&format!("{}/{}/{}", &input_dir, overlap_dir.file_name().unwrap().to_str().unwrap().to_owned(), file_name));
-                let paths = recog.get_overlap_paths(&ray);
-                let mut tree = tr(RecogKind::Penalty(0));
-                for i in paths { tree.push_back(i); }
-                let (resolved_str, _) = _get_flat_trees(&tree);
-                assert_eq!(correct, resolved_str, "Failed to parse overlap {}. Expected {}. Got {}", file_name, &correct, &resolved_str);
-            });
+        for file in fs::read_dir(overlap_dir).unwrap() .into_iter() .map(|x| x.unwrap()) {
+            let file_path = file.path();
+            let file_name = file_path.file_name().unwrap().to_str().unwrap();
+            let safe_file_name = file_name.trim_end_matches(".dat");
+            let correct: String = safe_file_name.split('_').map(|s| std::char::from_u32(s.parse::<u32>().unwrap()).unwrap()).collect();
+            if correct == "h{" {
+                println!("Missed item here");
+            }
+            let ray = GlyphRays::from_file(&format!("{}/{}/{}", &input_dir, overlap_dir.file_name().unwrap().to_str().unwrap().to_owned(), file_name));
+            let paths = recog.get_overlap_paths(&ray);
+            let mut tree = tr(RecogKind::Penalty(0));
+            for i in paths { tree.push_back(i); }
+            let (resolved_str, _) = _get_flat_trees(&tree);
+            assert_eq!(correct, resolved_str, "Failed to parse overlap {}. Expected {}. Got {}", file_name, &correct, &resolved_str);
+        };
     }
 
     #[test]
