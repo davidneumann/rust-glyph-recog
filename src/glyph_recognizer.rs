@@ -1,7 +1,7 @@
-use std::cmp;
+use std::{cmp, io::Read};
 
 use crate::{glyph::Glyph, glyph_dataset::GlyphDataset, glyph_rays::GlyphRays};
-use trees::{Tree, tr};
+use trees::{Node, Tree, tr};
 
 pub struct GlyphRecognizer<'a> {
     pub dataset: &'a GlyphDataset,
@@ -61,6 +61,23 @@ impl GlyphRecognizer<'_> {
             results.push(tr(RecogKind::Penalty(5000 * overlap.width as u32)));
         }
         return results
+    }
+
+    pub fn parse_glyph_from_stream<T: Read>(&self, mut stream: T) -> String {
+        let ray = GlyphRays::from_read(&mut stream);
+        let best_match = self.dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+            .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
+            .min_by_key(|glyph| get_ray_delta(&ray, &glyph.ray));
+        match best_match {
+            Some(best) => return best.value.clone(),
+            None => {
+                let paths = self.get_overlap_paths(&ray);
+                let mut tree = tr(RecogKind::Penalty(0));
+                for i in paths { tree.push_back(i); }
+                let (resolved_str, _) = get_flat_trees(&tree);
+                return resolved_str
+            }
+        }
     }
 }
 
@@ -132,5 +149,27 @@ fn get_vec_delta(l:&Vec<u16>, r:&Vec<u16>, index:usize, max_value:u16, stretch_l
     }
     else {
         left - right
+    }
+}
+
+fn get_flat_trees(node: &Node<RecogKind>) -> (String, u32) {
+    let (my_str, my_val) = match node.data() {
+        RecogKind::Match(s, v) => (s.value.clone(), *v),
+        RecogKind::Penalty(s) => (String::new(), *s),
+    };
+    if node.has_no_child() {
+        (my_str, my_val)
+    }
+    else {
+        let mut min = std::u32::MAX;
+        let mut min_child_str = String::new();
+        for i in node.iter() {
+            let (child_str, score) = get_flat_trees(i);
+            if score <= min {
+                min = score;
+                min_child_str = child_str;
+            }
+        }
+        (format!("{}{}", my_str, min_child_str), my_val + min)
     }
 }

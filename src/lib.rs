@@ -179,9 +179,6 @@ mod tests {
             let file_name = file_path.file_name().unwrap().to_str().unwrap();
             let safe_file_name = file_name.trim_end_matches(".dat");
             let correct: String = safe_file_name.split('_').map(|s| std::char::from_u32(s.parse::<u32>().unwrap()).unwrap()).collect();
-            if correct == "h{" {
-                println!("Missed item here");
-            }
             let ray = GlyphRays::from_file(&format!("{}/{}/{}", &input_dir, overlap_dir.file_name().unwrap().to_str().unwrap().to_owned(), file_name));
             let paths = recog.get_overlap_paths(&ray);
             let mut tree = tr(RecogKind::Penalty(0));
