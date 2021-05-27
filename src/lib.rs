@@ -8,7 +8,7 @@ mod glyph_rays;
 mod glyph;
 mod glyph_dataset;
 mod diagnostics;
-mod glyph_recognizer;
+pub mod glyph_recognizer;
 use glyph_rays::GlyphRays;
 use glyph_recognizer::RecogKind;
 
@@ -137,7 +137,6 @@ mod tests {
 
     use super::*;
     use common::*;
-    use rayon::iter::{ParallelBridge, ParallelIterator};
     use trees::tr;
 
     #[test]
@@ -167,11 +166,9 @@ mod tests {
 
     #[test]
     fn test_overlaps() {
-        let (dataset, dirs, input_dir) = get_bench_assemble();
+        let (_, dirs, input_dir) = get_bench_assemble();
 
-        let recog = GlyphRecognizer {
-            dataset: &dataset,
-        };
+        let recog = GlyphRecognizer::new_from_data_dir(input_dir);
 
         let overlap_dir = dirs.iter().find(|dir| dir.file_name().unwrap().to_str().unwrap() == "overlaps").unwrap();
         for file in fs::read_dir(overlap_dir).unwrap() .into_iter() .map(|x| x.unwrap()) {
@@ -191,11 +188,9 @@ mod tests {
     #[test]
     #[ignore]
     fn test_overlaps_verbose() {
-        let (dataset, dirs, input_dir) = get_bench_assemble();
+        let (_, dirs, input_dir) = get_bench_assemble();
 
-        let recog = GlyphRecognizer {
-            dataset: &dataset,
-        };
+        let recog = GlyphRecognizer::new_from_data_dir(input_dir);
 
         let overlap_dir = dirs.iter().find(|dir| dir.file_name().unwrap().to_str().unwrap() == "overlaps").unwrap();
         fs::read_dir(overlap_dir).unwrap()
@@ -311,11 +306,9 @@ mod tests {
 
     #[bench]
     fn bench_overlaps_all_multi_threaded(b: &mut Bencher) {
-        let (dataset, dirs, input_dir) = get_bench_assemble();
+        let (_, dirs, input_dir) = get_bench_assemble();
 
-        let recog = GlyphRecognizer {
-            dataset: &dataset,
-        };
+        let recog = GlyphRecognizer::new_from_data_dir(input_dir);
 
         let overlap_dir = dirs.iter().find(|dir| dir.file_name().unwrap().to_str().unwrap() == "overlaps").unwrap();
         b.iter(|| {
@@ -362,11 +355,9 @@ mod tests {
 
     #[bench]
     fn bench_overlaps_single_item(b: &mut Bencher) {
-        let (dataset, dirs, input_dir) = get_bench_assemble();
+        let (_, dirs, input_dir) = get_bench_assemble();
 
-        let recog = GlyphRecognizer {
-            dataset: &dataset,
-        };
+        let recog = GlyphRecognizer::new_from_data_dir(input_dir);
 
         let mut rng = rand::thread_rng();
 

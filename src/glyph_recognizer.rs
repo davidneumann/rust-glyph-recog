@@ -3,8 +3,8 @@ use std::{cmp, io::Read};
 use crate::{glyph::Glyph, glyph_dataset::GlyphDataset, glyph_rays::GlyphRays};
 use trees::{Node, Tree, tr};
 
-pub struct GlyphRecognizer<'a> {
-    pub dataset: &'a GlyphDataset,
+pub struct GlyphRecognizer {
+    pub dataset: GlyphDataset,
 }
 
 pub enum RecogKind<'a> {
@@ -12,7 +12,15 @@ pub enum RecogKind<'a> {
     Penalty(u32),
 }
 
-impl GlyphRecognizer<'_> {
+impl GlyphRecognizer {
+    pub fn new_from_data_dir(dataset_dir: &str) -> GlyphRecognizer {
+        GlyphRecognizer {
+            dataset: GlyphDataset::build_from_dir(dataset_dir),
+        }
+    }
+}
+
+impl GlyphRecognizer {
     pub fn get_overlap_paths(&self, overlap: &GlyphRays) -> Vec<Tree<RecogKind>> {
         //println!("Overlap: {},{}", overlap.width, overlap.height);
         //overlap.print_raw();
