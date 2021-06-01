@@ -28,22 +28,34 @@ impl GlyphRays {
         let height = u8::from_le_bytes(buffer);
         fin.read(&mut buffer).unwrap();
         let pixels_from_top = u8::from_le_bytes(buffer);
-        // println!("{},{}", width, height);
+        // println!("{},{} {}", width, height, pixels_from_top);
 
-        let mut count = 0;
         let len = (width * (height as u16)) as usize;
-        let mut buffer = vec![0u8; len];
         let mut input = vec![vec![false; height as usize]; width as usize];
-        let read = fin.read(&mut buffer).unwrap();
 
-        for buffer_i in 0..read {
-            let packed_bytes = buffer[buffer_i];
-            for i in 0..8{
-                let pixel = (packed_bytes & (1 << 7 - i)) != 0;
-                input[count % width as usize][count / width as usize] = pixel;
-                //splits.push(pixel);
-                count += 1;
-                if count >= len { break; }
+        let mut bytes_left = len / 8 + usize::from(len % 8 != 0);
+        let mut buffer = vec![0u8; 100];
+        let mut count = 0;
+        while bytes_left > 0 {
+            // println!("Bytes left {}", bytes_left);
+            if buffer.len() > bytes_left {
+                buffer = vec![0u8; bytes_left];
+            }
+
+            let read = fin.read(&mut buffer).unwrap();
+            // println!("Read: {}", read);
+            bytes_left -= read;
+
+            for buffer_i in 0..read {
+                let packed_bytes = buffer[buffer_i];
+                for i in 0..8{
+                    let pixel = (packed_bytes & (1 << 7 - i)) != 0;
+                    // println!("Trying to set {} {}", count % width as usize, count / width as usize);
+                    input[count % width as usize][count / width as usize] = pixel;
+                    //splits.push(pixel);
+                    count += 1;
+                    if count >= len { break; }
+                }
             }
         }
 
