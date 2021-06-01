@@ -30,25 +30,20 @@ impl GlyphRays {
         let pixels_from_top = u8::from_le_bytes(buffer);
         // println!("{},{}", width, height);
 
-        let mut buffer = [0; 100];
         let mut count = 0;
         let len = (width * (height as u16)) as usize;
+        let mut buffer = vec![0u8; len];
         let mut input = vec![vec![false; height as usize]; width as usize];
-        loop {
-            let read = fin.read(&mut buffer).unwrap();
-            if read == 0 {
-                break;
-            }
+        let read = fin.read(&mut buffer).unwrap();
 
-            for buffer_i in 0..read {
-                let packed_bytes = buffer[buffer_i];
-                for i in 0..8{
-                    let pixel = (packed_bytes & (1 << 7 - i)) != 0;
-                    input[count % width as usize][count / width as usize] = pixel;
-                    //splits.push(pixel);
-                    count += 1;
-                    if count >= len { break; }
-                }
+        for buffer_i in 0..read {
+            let packed_bytes = buffer[buffer_i];
+            for i in 0..8{
+                let pixel = (packed_bytes & (1 << 7 - i)) != 0;
+                input[count % width as usize][count / width as usize] = pixel;
+                //splits.push(pixel);
+                count += 1;
+                if count >= len { break; }
             }
         }
 
