@@ -71,14 +71,20 @@ impl GlyphRecognizer {
         return results
     }
 
-    pub fn parse_glyph_from_stream<T: Read>(&self, mut stream: T) -> String {
-        let ray = GlyphRays::from_read(&mut stream);
-        let best_match = self.dataset.get(&ray.width, &ray.height).unwrap().into_iter()
+    fn get_best_match(&self, ray: &GlyphRays) -> Option<&Glyph> {
+        return self.dataset.get(&ray.width, &ray.height)?.into_iter()
             .filter(|glyph| (ray.pixels_from_top - glyph.ray.pixels_from_top).abs() <= 2)
             .min_by_key(|glyph| get_ray_delta(&ray, &glyph.ray));
+    }
+
+    pub fn parse_glyph_from_stream<T: Read>(&self, mut stream: T) -> String {
+        let ray = GlyphRays::from_read(&mut stream);
+        //println!("Glyph width,height {},{}", &ray.width, &ray.height);
+        let best_match = self.get_best_match(&ray);
         match best_match {
             Some(best) => return best.value.clone(),
             None => {
+                //println!("Overlap detected");
                 let paths = self.get_overlap_paths(&ray);
                 let mut tree = tr(RecogKind::Penalty(0));
                 for i in paths { tree.push_back(i); }
